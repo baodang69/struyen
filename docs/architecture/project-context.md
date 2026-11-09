@@ -50,25 +50,26 @@ Toàn bộ dữ liệu thô được khai thác từ Otruyen:
 ### Giai đoạn 1: Infrastructure & Sync (Hoàn thành)
 - [x] Khởi tạo Project Spring Boot 3 & Java 21.
 - [x] Thiết lập kết nối PostgreSQL.
-- [x] Xây dựng Service gọi API và thực hiện logic Upsert (Update or Insert) vào DB.
+- [x] Xây dựng Service gọi API và thực hiện logic Upsert vào DB.
 - [x] Triển khai Cron Job tự động đồng bộ danh mục truyện.
 - [x] Xử lý Image Proxy để hiển thị ảnh trên Web/App mà không bị lỗi 403 Forbidden.
 
 ### Giai đoạn 2: Viewer & UX (Hoàn thành phần Backend)
-- [x] Xây dựng API trả về danh sách truyện theo phân trang và lọc theo thể loại.
+- [x] Xây dựng API trả về danh sách truyện theo phân trang và lọc theo thể loại (`F-04`).
 - [x] API chi tiết truyện và danh sách chương (`F-06`).
 - [x] API đọc nội dung chương (trả về danh sách URL ảnh đã qua proxy `F-06`).
 - [x] API danh mục thể loại công khai (`F-07`).
-- [ ] Xây dựng giao diện Reader (Frontend).
-- [ ] **(Planning)** Tích hợp Elasticsearch cho tìm kiếm siêu tốc & Auto-suggestion tối thiểu 5 truyện (`F-08`).
 
-### Giai đoạn 3: Social & Notification (Đang triển khai)
+### Giai đoạn 3: Social, Auth & Tương tác (Hoàn thành cốt lõi)
 - [x] Hệ thống Auth & JWT (Đăng ký, Đăng nhập, Profile, Phân quyền `F-09`).
 - [x] Tính năng Theo dõi (Subscription) & Lịch sử đọc (Reading History `F-10`).
 - [x] Bình luận đa cấp (Comments & Replies) & Thả tim (`F-11`).
-- [ ] **(Planning)** Hệ thống thông báo tự động khi có chương mới (`F-12`).
 
-### Giai đoạn 4: Optimization & Admin
-- [ ] **(Planning)** Tối ưu Cache Redis (`F-13`).
-- [ ] **(Planning)** Hoàn thiện Dashboard cho Admin quản lý ẩn/hiện nội dung & tài khoản (`F-14`).
+### Lộ trình các tính năng tiếp theo (Thứ tự ưu tiên triển khai):
+1. [x] **Bước 1:** `F-14` Admin Management & Content Moderation Dashboard (Hoàn thành)
+2. [ ] **Bước 2:** `F-13` Redis Caching Optimization (Tối ưu tốc độ & giảm tải PostgreSQL)
+3. [ ] **Bước 3:** `F-12` Automated User Notification System (Tích hợp Message Broker phân tán)
+4. [ ] **Bước 4:** `F-08` Elasticsearch Full-Text Search & Smart Suggestions (Tối thiểu 5 truyện)
+
+
 

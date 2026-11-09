@@ -1,17 +1,18 @@
-# Feature Planning: Admin Management & Content Moderation Dashboard
+# Feature: Admin Management & Content Moderation Dashboard
 
 - **Mã tính năng:** `F-14 / ADMIN-MANAGEMENT`
-- **Trạng thái:** Dự thảo / Planning
-- **Độ ưu tiên:** Trung bình (Medium)
-- **Người phụ trách:** Backend Team
-- **Dự kiến triển khai:** Phase 4.2
+- **Trạng thái:** Hoàn thành
+- **Ngày hoàn thành:** 2026-11-09
+- **Tác giả / Phụ trách:** Backend Team
+- **Nhánh Git:** `develop`
 
 ---
 
 ## 1. Tổng quan & Mục tiêu
 
 - **Mục đích:** Cung cấp bộ API quản trị toàn diện cho quản trị viên (Admin) để kiểm duyệt nội dung truyện, quản lý tài khoản người dùng, và đăng thông báo hệ thống.
-- **Yêu cầu bảo mật:** Tất cả các endpoint quản trị đều được bảo vệ nghiêm ngặt bằng Spring Security với quyền `@PreAuthorize("hasRole('ADMIN')")`.
+- **Yêu cầu bảo mật:** Tất cả các endpoint quản trị đều được bảo vệ nghiêm ngặt bằng Spring Security với quyền `@PreAuthorize("hasRole('ADMIN')")`. Mặc định hệ thống tự khởi tạo tài khoản `admin / Admin@123456`.
+
 
 ---
 
@@ -49,3 +50,4 @@
 - `POST /api/v1/admin/notices`: Tạo thông báo hệ thống mới
 - `GET /api/v1/admin/notices`: Danh sách thông báo
 - `DELETE /api/v1/admin/notices/{id}`: Xóa thông báo
+

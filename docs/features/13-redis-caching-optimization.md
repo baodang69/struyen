@@ -70,3 +70,4 @@ spring.data.redis.port=${REDIS_PORT:6379}
 spring.cache.type=redis
 spring.cache.redis.time-to-live=1800000
 ```
+

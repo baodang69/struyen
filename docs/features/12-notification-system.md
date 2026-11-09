@@ -18,30 +18,33 @@
 
 ---
 
-## 2. Kiến trúc & Luồng xử lý
+## 2. Kiến trúc & Luồng xử lý qua Message Broker (Producer - Consumer)
+
+Để giải quyết triệt để vấn đề nghẽn hệ thống khi phát tán thông báo tới hàng chục ngàn người theo dõi (Fan-out problem), hệ thống áp dụng mô hình phân tán bất đồng bộ:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Cron as OtruyenSyncCronJob
-    participant Sync as OtruyenSyncService
-    participant NotifService as NotificationService
+    participant Sync as OtruyenSyncService (Producer)
+    participant Broker as Message Broker (RabbitMQ / Redis Streams)
+    participant Worker as Notification Worker (Consumer)
     participant SubRepo as StorySubscriptionRepository
     participant NotifRepo as UserNotificationRepository
     participant Client as Frontend (User)
 
-    Cron->>Sync: syncCatchUpStories()
-    Sync->>Sync: Cào và phát hiện chương mới
-    Sync->>NotifService: notifySubscribers(storyId, latestChapterName, latestChapterId)
-    NotifService->>SubRepo: Lấy danh sách user_id đang theo dõi storyId
-    SubRepo-->>NotifService: List<Long> userIds
-    NotifService->>NotifRepo: Batch insert thông báo cho các user
-    
-    Client->>NotifService: GET /api/v1/me/notifications/unread-count
-    NotifService-->>Client: {"unreadCount": 3}
-    Client->>NotifService: GET /api/v1/me/notifications
-    NotifService-->>Client: Danh sách thông báo mới
+    Sync->>Sync: Cào và lưu thành công Chapter mới
+    Sync->>Broker: Publish Event: ChapterReleasedEvent {storyId, chapterName, chapterId}
+    Note over Sync: Mất < 2ms! Tiến trình cào không hề bị nghẽn (Decoupled).
+
+    Broker->>Worker: Consume ChapterReleasedEvent
+    Worker->>SubRepo: Lấy danh sách subscriber theo từng Batch (1.000 users/batch)
+    Worker->>NotifRepo: Batch Insert thông báo vào user_notification
+    Worker->>Client: (Optional) Gửi Web Push Notification
+
+    Client->>Worker: GET /api/v1/me/notifications/unread-count
+    Worker-->>Client: {"unreadCount": 3}
 ```
+
 
 ---
 
@@ -103,3 +106,4 @@ CREATE INDEX IF NOT EXISTS idx_user_notif_user ON user_notification (user_id, is
 ### 4.3 Đánh dấu thông báo đã đọc
 - **Một thông báo:** `PATCH /api/v1/me/notifications/{id}/read`
 - **Tất cả thông báo:** `PATCH /api/v1/me/notifications/read-all`
+

@@ -26,4 +26,8 @@ public interface StoryRepository extends JpaRepository<Story, String> {
 
     @Query("SELECT MAX(s.originUpdatedAt) FROM Story s")
     LocalDateTime findMaxOriginUpdatedAt();
+
+    Page<Story> findByNameContainingIgnoreCaseOrSlugContainingIgnoreCase(String name, String slug, Pageable pageable);
+
+    Page<Story> findAllByOrderByUpdatedAtDesc(Pageable pageable);
 }
