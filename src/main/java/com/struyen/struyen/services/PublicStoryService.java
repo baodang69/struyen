@@ -32,6 +32,7 @@ public class PublicStoryService {
     private final StoryRepository storyRepository;
     private final ChapterRepository chapterRepository;
     private final CategoryRepository categoryRepository;
+    private final MangaDexSyncService mangaDexSyncService;
 
     /**
      * Lấy danh sách truyện có phân trang và lọc theo thể loại.
@@ -102,6 +103,13 @@ public class PublicStoryService {
         }
         if (currentIndex >= 0 && currentIndex < storyChapters.size() - 1) {
             nextChapterId = storyChapters.get(currentIndex + 1).getId();
+        }
+
+        // On-demand fetch cho MangaDex chapter neu chua dong bo anh
+        if ((currentChapter.getImagesJson() == null || currentChapter.getImagesJson().isEmpty())
+                && currentChapter.getChapterApiData() != null
+                && currentChapter.getChapterApiData().contains("mangadex.org/at-home/server")) {
+            currentChapter = mangaDexSyncService.fetchChapterPages(currentChapter);
         }
 
         // Chuyển đổi danh sách ảnh raw sang Image Proxy URL

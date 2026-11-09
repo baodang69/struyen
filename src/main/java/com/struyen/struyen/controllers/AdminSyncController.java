@@ -1,5 +1,6 @@
 package com.struyen.struyen.controllers;
 
+import com.struyen.struyen.services.MangaDexSyncService;
 import com.struyen.struyen.services.OtruyenSyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminSyncController {
 
     private final OtruyenSyncService otruyenSyncService;
+    private final MangaDexSyncService mangaDexSyncService;
 
     @Value("${admin.secret-key:admin-struyen-secret-key-2026}")
     private String adminSecretKey;
@@ -42,5 +44,46 @@ public class AdminSyncController {
         otruyenSyncService.syncFullStoriesAsync(startPage, endPage);
 
         return ResponseEntity.ok("Tiến trình cào Full Data từ trang " + startPage + " đến trang " + endPage + " đã được khởi chạy ngầm (Background Task). Vui lòng theo dõi tiến độ trên màn hình Console Logs nhé!");
+    }
+
+    @PostMapping("/mangadex/popular")
+    public ResponseEntity<String> triggerMangaDexPopularSync(
+            @RequestHeader(value = "X-Admin-Key", required = false) String providedKey,
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(defaultValue = "0") int offset) {
+
+        if (providedKey == null || !providedKey.equals(adminSecretKey)) {
+            log.warn("[Unauthorized Admin Access] Truy cap trai phep endpoint sync MangaDex!");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Unauthorized: Header 'X-Admin-Key' khong hop le hoac bi thieu.");
+        }
+
+        if (limit < 1 || limit > 50 || offset < 0) {
+            return ResponseEntity.badRequest()
+                    .body("Tham so khong hop le: limit tu 1 den 50, offset >= 0.");
+        }
+
+        mangaDexSyncService.syncPopularVietnameseMangaAsync(limit, offset);
+
+        return ResponseEntity.ok(String.format("Tien trinh dong bo %d truyen Tieng Viet tu MangaDex (offset=%d) da duoc khoi chay ngam.", limit, offset));
+    }
+
+    @PostMapping("/mangadex/manga/{mangaId}")
+    public ResponseEntity<String> triggerMangaDexSingleMangaSync(
+            @RequestHeader(value = "X-Admin-Key", required = false) String providedKey,
+            @PathVariable String mangaId) {
+
+        if (providedKey == null || !providedKey.equals(adminSecretKey)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Unauthorized: Header 'X-Admin-Key' khong hop le.");
+        }
+
+        boolean success = mangaDexSyncService.syncMangaById(mangaId);
+        if (success) {
+            return ResponseEntity.ok("Dong bo thanh cong truyen MangaDex id: " + mangaId);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Khong the dong bo hoac khong tim thay truyen MangaDex voi id: " + mangaId);
+        }
     }
 }

@@ -35,12 +35,17 @@ public class ImageProxyService {
             "</svg>"
     ).getBytes(StandardCharsets.UTF_8);
 
-    // Whitelist cac domain CDN hop le cua Otruyen de ngan chan hoan toan SSRF
+    // Whitelist cac domain CDN hop le cua Otruyen va MangaDex de ngan chan hoan toan SSRF
     private static final Set<String> ALLOWED_HOST_SUFFIXES = Set.of(
             "otruyencdn.com",
             "otruyenapi.com",
-            "fffcdn.com"
+            "fffcdn.com",
+            "mangadex.org",
+            "mangadex.network"
     );
+
+    private static final String MANGADEX_USER_AGENT = "StruyenReader/1.0 (https://github.com/struyen/struyen_be; contact@struyen.com)";
+    private static final String DEFAULT_BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
     public ResponseEntity<byte[]> fetchImage(String rawImageUrl) {
         String imageUrl = normalizeUrl(rawImageUrl);
@@ -52,9 +57,16 @@ public class ImageProxyService {
         }
 
         try {
+            URI uri = URI.create(imageUrl);
+            String host = uri.getHost() != null ? uri.getHost().toLowerCase() : "";
+
             HttpHeaders headers = new HttpHeaders();
-            headers.set("Referer", "https://otruyenapi.com/");
-            headers.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            if (host.endsWith("mangadex.org") || host.endsWith("mangadex.network")) {
+                headers.set(HttpHeaders.USER_AGENT, MANGADEX_USER_AGENT);
+            } else {
+                headers.set("Referer", "https://otruyenapi.com/");
+                headers.set(HttpHeaders.USER_AGENT, DEFAULT_BROWSER_USER_AGENT);
+            }
             headers.set(HttpHeaders.ACCEPT, "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8");
 
             HttpEntity<Void> entity = new HttpEntity<>(headers);

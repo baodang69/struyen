@@ -83,5 +83,37 @@ class ImageProxyServiceTest {
         assertNotNull(response.getBody());
         assertEquals(MediaType.parseMediaType("image/svg+xml"), response.getHeaders().getContentType());
     }
+
+    @Test
+    void shouldAllowAndFetchMangaDexCoverImage() {
+        byte[] expectedBytes = new byte[]{10, 11, 12};
+        ResponseEntity<byte[]> cdnResponse = ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .body(expectedBytes);
+
+        when(restTemplate.exchange(eq("https://uploads.mangadex.org/covers/manga123/cover.jpg"), eq(HttpMethod.GET), any(), eq(byte[].class)))
+                .thenReturn(cdnResponse);
+
+        ResponseEntity<byte[]> response = imageProxyService.fetchImage("https://uploads.mangadex.org/covers/manga123/cover.jpg");
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertArrayEquals(expectedBytes, response.getBody());
+    }
+
+    @Test
+    void shouldAllowAndFetchMangaDexAtHomePageImage() {
+        byte[] expectedBytes = new byte[]{20, 21, 22};
+        ResponseEntity<byte[]> cdnResponse = ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_PNG)
+                .body(expectedBytes);
+
+        when(restTemplate.exchange(eq("https://cmdxd98sb0x3yprd.mangadex.network/data/hash123/page1.png"), eq(HttpMethod.GET), any(), eq(byte[].class)))
+                .thenReturn(cdnResponse);
+
+        ResponseEntity<byte[]> response = imageProxyService.fetchImage("https://cmdxd98sb0x3yprd.mangadex.network/data/hash123/page1.png");
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertArrayEquals(expectedBytes, response.getBody());
+    }
 }
 
