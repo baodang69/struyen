@@ -38,3 +38,4 @@ public class AdminStoryController {
         return ResponseEntity.ok(Map.of("storyId", id, "isFeatured", newStatus));
     }
 }
+

@@ -12,6 +12,10 @@ Every commit message must follow the Conventional Commits specification:
 [optional footer(s)]
 ```
 
+### Strict Formatting Rule:
+- **NO EMOJIS/ICONS:** Absolutely NO emojis or icons (e.g. `:sparkles:`, `🚀`, `🔥`, `✨`, `🚨`, `🐛`) in commit messages or pull request titles. Use clean, plain English/Vietnamese technical text only.
+
+
 ### Types:
 - `feat`: A new feature (corresponds with a new note in `docs/features/`)
 - `fix`: A bug fix

@@ -39,3 +39,4 @@ public class AdminNoticeController {
         return ResponseEntity.ok(Map.of("message", "Da xoa thong bao he thong thanh cong."));
     }
 }
+

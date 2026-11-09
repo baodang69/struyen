@@ -21,3 +21,4 @@ public class CreateNoticeRequest {
     @Builder.Default
     private Boolean isActive = true;
 }
+

@@ -15,3 +15,4 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
 
     Page<Notice> findAllByOrderByCreatedAtDesc(Pageable pageable);
 }
+

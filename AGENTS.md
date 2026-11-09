@@ -19,6 +19,10 @@ Struyen (`struyen_be`) is a Spring Boot 3 & Java 21 backend aggregator platform 
 - **Entities (`entities/`)**: Hibernate entities. Avoid `@Data` on relationships; use `@Getter`, `@Setter`, `@NoArgsConstructor`. Always use `FetchType.LAZY` for relations.
 - **DTOs (`dtos/`)**: Request/Response models with static factory methods (e.g. `fromEntity(...)`).
 
+### Clean Code & Professional Standards (STRICT)
+- **NO EMOJIS / ICONS:** Tuyệt đối KHÔNG sử dụng icon hoặc emoji (ví dụ: 🚨, ⚡, 🔥, 🚀, 💡, ✨, v.v.) trong mã nguồn, comments, log statements, và commit messages. Mọi nội dung code và git log phải hoàn toàn sạch sẽ, súc tích và chuyên nghiệp.
+
+
 ---
 
 ## 2. Essential Commands

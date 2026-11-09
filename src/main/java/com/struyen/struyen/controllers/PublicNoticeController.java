@@ -22,3 +22,4 @@ public class PublicNoticeController {
         return ResponseEntity.ok(adminService.getActiveNotices());
     }
 }
+
