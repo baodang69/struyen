@@ -15,6 +15,9 @@ import java.util.Optional;
 public interface StoryRepository extends JpaRepository<Story, String> {
     Optional<Story> findBySlug(String slug);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"categories"})
+    Optional<Story> findDetailBySlug(String slug);
+
     List<Story> findBySlugIn(List<String> slugs);
 
     Page<Story> findByIsActiveTrue(Pageable pageable);

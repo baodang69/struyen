@@ -13,6 +13,11 @@ Bảng danh sách tổng hợp tất cả các tính năng (features) đã hoàn
 | F-03 | `IMAGE-PROXY` | Image Proxy Controller & Service (Bypass Hotlink Otruyen CDN) | Hoàn thành | 2026-03-25 | [03-image-proxy-service.md](./03-image-proxy-service.md) |
 | F-04 | `PUBLIC-STORY-API` | Public Story Controller & Service (Danh sách truyện, phân trang, lọc theo thể loại) | Hoàn thành | 2026-05-06 | [04-public-story-api.md](./04-public-story-api.md) |
 | F-05 | `SECURITY-CONFIG` | Cấu hình Spring Security, CORS & RestTemplate | Hoàn thành | 2026-03-25 | [05-security-and-configuration.md](./05-security-and-configuration.md) |
+| F-06 | `STORY-DETAIL-READER` | API Chi tiết truyện & Nội dung đọc chương (Proxy ảnh, Prev/Next) | Hoàn thành | 2026-11-09 | [06-story-detail-and-reader-api.md](./06-story-detail-and-reader-api.md) |
+| F-07 | `PUBLIC-CATEGORY-API` | API Danh mục thể loại truyện công khai | Hoàn thành | 2026-11-09 | [07-public-category-api.md](./07-public-category-api.md) |
+| F-08 | `ELASTICSEARCH-SEARCH` | Tìm kiếm Elasticsearch & Auto-suggestion tối thiểu 5 truyện | Dự thảo / Planning | - | [08-elasticsearch-search-and-suggestion.md](./08-elasticsearch-search-and-suggestion.md) |
+
+
 
 ---
 

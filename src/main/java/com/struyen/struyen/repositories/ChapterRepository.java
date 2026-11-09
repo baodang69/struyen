@@ -19,4 +19,10 @@ public interface ChapterRepository extends JpaRepository<Chapter, String> {
      */
     @Query("SELECT c.chapterName FROM Chapter c WHERE c.story.id = :storyId")
     Set<String> findChapterNamesByStoryId(@Param("storyId") String storyId);
+
+    /**
+     * Lấy toàn bộ danh sách chương của một truyện theo thứ tự tạo tăng dần.
+     */
+    java.util.List<Chapter> findByStoryIdOrderByCreatedAtAsc(String storyId);
+
 }

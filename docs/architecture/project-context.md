@@ -59,6 +59,8 @@ Toàn bộ dữ liệu thô được khai thác từ Otruyen:
 - [ ] API chi tiết truyện và danh sách chương.
 - [ ] API đọc nội dung chương (trả về danh sách URL ảnh đã qua proxy).
 - [ ] Xây dựng giao diện Reader (Frontend).
+- [ ] **(Planning)** Tích hợp Elasticsearch cho tìm kiếm siêu tốc & Auto-suggestion tối thiểu 5 truyện.
+
 
 ### Giai đoạn 3: Social & Notification
 - [ ] Hệ thống Auth (JWT).
