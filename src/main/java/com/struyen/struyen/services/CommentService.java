@@ -77,7 +77,7 @@ public class CommentService {
     }
 
     /**
-     * Lay danh sach binh luan cap goc tren trang truyen (Story Page)
+     * Lay danh sach binh luan cap goc tren trang truyen (Story Page) kem toan bo replies phan cap
      */
     @Transactional(readOnly = true)
     public PageResponse<CommentDto> getStoryComments(String storyId, int page, int size) {
@@ -87,15 +87,23 @@ public class CommentService {
         Page<Comment> commentPage = commentRepository.findByStoryIdAndParentIsNullAndIsDeletedFalseOrderByCreatedAtDesc(storyId, pageable);
 
         Page<CommentDto> dtoPage = commentPage.map(c -> {
-            long replyCount = commentRepository.countByParentIdAndIsDeletedFalse(c.getId());
-            return CommentDto.fromEntity(c, replyCount);
+            List<Comment> replies = commentRepository.findByParentIdAndIsDeletedFalseOrderByCreatedAtAsc(c.getId());
+            List<CommentDto> replyDtos = replies.stream()
+                    .map(r -> CommentDto.fromEntity(r, 0))
+                    .toList();
+
+            CommentDto parentDto = CommentDto.fromEntity(c, replyDtos.size());
+            if (parentDto != null) {
+                parentDto.setReplies(replyDtos);
+            }
+            return parentDto;
         });
 
         return PageResponse.of(dtoPage);
     }
 
     /**
-     * Lay danh sach binh luan cap goc trong chuong truyen (Chapter Page)
+     * Lay danh sach binh luan cap goc trong chuong truyen (Chapter Page) kem toan bo replies phan cap
      */
     @Transactional(readOnly = true)
     public PageResponse<CommentDto> getChapterComments(String chapterId, int page, int size) {
@@ -105,8 +113,16 @@ public class CommentService {
         Page<Comment> commentPage = commentRepository.findByChapterIdAndParentIsNullAndIsDeletedFalseOrderByCreatedAtDesc(chapterId, pageable);
 
         Page<CommentDto> dtoPage = commentPage.map(c -> {
-            long replyCount = commentRepository.countByParentIdAndIsDeletedFalse(c.getId());
-            return CommentDto.fromEntity(c, replyCount);
+            List<Comment> replies = commentRepository.findByParentIdAndIsDeletedFalseOrderByCreatedAtAsc(c.getId());
+            List<CommentDto> replyDtos = replies.stream()
+                    .map(r -> CommentDto.fromEntity(r, 0))
+                    .toList();
+
+            CommentDto parentDto = CommentDto.fromEntity(c, replyDtos.size());
+            if (parentDto != null) {
+                parentDto.setReplies(replyDtos);
+            }
+            return parentDto;
         });
 
         return PageResponse.of(dtoPage);

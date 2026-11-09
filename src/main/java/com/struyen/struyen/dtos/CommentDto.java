@@ -23,6 +23,7 @@ public class CommentDto {
     private String storyId;
     private String chapterId;
     private Long parentId;
+    private String replyToUsername;
     private String content;
     private Integer likeCount;
     private Long replyCount;
@@ -33,6 +34,10 @@ public class CommentDto {
         if (comment == null) return null;
 
         User user = comment.getUser();
+        String replyTo = null;
+        if (comment.getParent() != null && comment.getParent().getUser() != null) {
+            replyTo = comment.getParent().getUser().getUsername();
+        }
 
         return CommentDto.builder()
                 .id(comment.getId())
@@ -42,6 +47,7 @@ public class CommentDto {
                 .storyId(comment.getStory() != null ? comment.getStory().getId() : null)
                 .chapterId(comment.getChapter() != null ? comment.getChapter().getId() : null)
                 .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
+                .replyToUsername(replyTo)
                 .content(Boolean.TRUE.equals(comment.getIsDeleted()) ? "Binh luan nay da bi xoa." : comment.getContent())
                 .likeCount(comment.getLikeCount())
                 .replyCount(replyCount)

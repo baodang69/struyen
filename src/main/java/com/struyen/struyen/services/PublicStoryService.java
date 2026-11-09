@@ -55,6 +55,7 @@ public class PublicStoryService {
 
     /**
      * Lấy chi tiết thông tin truyện và toàn bộ danh sách chương theo slug.
+     * Tự động làm sạch mô tả và kích hoạt tiến trình pre-fetch toàn bộ chương chưa đồng bộ.
      */
     @Transactional(readOnly = true)
     public StoryDetailDto getStoryDetail(String slug) {
@@ -62,10 +63,20 @@ public class PublicStoryService {
                 .filter(Story::getIsActive)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy truyện với slug: " + slug));
 
+        if (story.getDescription() != null && (story.getDescription().contains("%2") || story.getDescription().matches(".*[a-f0-9]{32}.*"))) {
+            story.setDescription(MangaDexSyncService.cleanDescription(story.getDescription()));
+        }
+
         List<Chapter> chapters = chapterRepository.findByStoryIdOrderByCreatedAtAsc(story.getId());
         List<ChapterShortDto> chapterDtos = chapters.stream()
                 .map(ChapterShortDto::fromEntity)
                 .toList();
+
+        // Kích hoạt tiến trình pre-fetch toàn bộ chương còn lại dưới nền
+        long unsyncedCount = chapterRepository.countByStoryIdAndIsContentSyncedFalse(story.getId());
+        if (unsyncedCount > 0) {
+            mangaDexSyncService.prefetchAllRemainingChaptersAsync(story.getId());
+        }
 
         return StoryDetailDto.fromEntity(story, chapterDtos);
     }

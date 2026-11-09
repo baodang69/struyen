@@ -26,9 +26,8 @@ public class RestTemplateConfig {
     static {
         try {
             MANGADEX_API_FALLBACK_IPS = new InetAddress[]{
-                    InetAddress.getByAddress("api.mangadex.org", new byte[]{(byte) 172, 67, 74, 88}),
-                    InetAddress.getByAddress("api.mangadex.org", new byte[]{104, 26, 2, 74}),
-                    InetAddress.getByAddress("api.mangadex.org", new byte[]{104, 26, 3, 74})
+                    InetAddress.getByAddress("api.mangadex.org", new byte[]{45, (byte) 129, (byte) 229, 1}),
+                    InetAddress.getByAddress("api.mangadex.org", new byte[]{45, (byte) 129, (byte) 229, 2})
             };
             MANGADEX_UPLOADS_FALLBACK_IPS = new InetAddress[]{
                     InetAddress.getByAddress("uploads.mangadex.org", new byte[]{45, (byte) 129, (byte) 229, 1}),
@@ -47,11 +46,11 @@ public class RestTemplateConfig {
                 try {
                     return InetAddress.getAllByName(host);
                 } catch (UnknownHostException e) {
-                    if ("api.mangadex.org".equalsIgnoreCase(host)) {
-                        log.info("[DNS Fallback] Su dung fallback IP cho api.mangadex.org do ISP DNS chan.");
+                    if ("api.mangadex.org".equalsIgnoreCase(host) || "dxlb.mangadex.org".equalsIgnoreCase(host)) {
+                        log.info("[DNS Fallback] Su dung fallback IP cho {} do ISP DNS chan.", host);
                         return MANGADEX_API_FALLBACK_IPS;
                     }
-                    if ("uploads.mangadex.org".equalsIgnoreCase(host) || "dxlb.mangadex.org".equalsIgnoreCase(host)) {
+                    if ("uploads.mangadex.org".equalsIgnoreCase(host)) {
                         log.info("[DNS Fallback] Su dung fallback IP cho uploads.mangadex.org do ISP DNS chan.");
                         return MANGADEX_UPLOADS_FALLBACK_IPS;
                     }

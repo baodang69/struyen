@@ -1,5 +1,7 @@
 package com.struyen.struyen.services;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.struyen.struyen.dtos.MangaDexDto;
 import com.struyen.struyen.entities.Category;
 import com.struyen.struyen.entities.Chapter;
@@ -7,24 +9,28 @@ import com.struyen.struyen.entities.Story;
 import com.struyen.struyen.repositories.CategoryRepository;
 import com.struyen.struyen.repositories.ChapterRepository;
 import com.struyen.struyen.repositories.StoryRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
 import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 @Service
@@ -232,93 +238,137 @@ public class MangaDexSyncService {
         return savedStory;
     }
 
+    @PostConstruct
+    public void cleanExistingStoryDescriptions() {
+        try {
+            List<Story> stories = storyRepository.findAll();
+            for (Story s : stories) {
+                if (s.getDescription() != null && (s.getDescription().contains("%2") || s.getDescription().matches(".*[a-f0-9]{32}.*"))) {
+                    s.setDescription(cleanDescription(s.getDescription()));
+                    storyRepository.save(s);
+                    log.info("Da lam sach mo ta cho truyen: {}", s.getName());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Khong the lam sach mo ta cu: {}", e.getMessage());
+        }
+    }
+
     /**
-     * Lay danh sach chapter Tieng Viet cua manga va luu vao DB.
-     * Prefetch luon 5 chapter dau tien de nguoi doc mo chapter tuc thi (Zero Wait Time).
+     * Lay danh sach toan bo chapter Tieng Viet cua manga va luu vao DB.
+     * Ho tro phan trang de lay het 100% chapter, sau do khoi chay prefetch chay ngam.
      */
     public void syncChaptersForManga(Story story, String mangaDexId) {
-        String url = String.format(
-                "%s/manga/%s/feed?translatedLanguage[]=vi&order[chapter]=asc&limit=100&includes[]=scanlation_group",
-                API_BASE, mangaDexId
-        );
-
-        HttpHeaders headers = createMangaDexHeaders();
-        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        int limit = 100;
+        int offset = 0;
+        int total = Integer.MAX_VALUE;
+        Set<String> existingChapterNames = chapterRepository.findChapterNamesByStoryId(story.getId());
+        List<Chapter> newlySavedChapters = new ArrayList<>();
 
         try {
-            throttle();
-            ResponseEntity<MangaDexDto.ChapterListResponse> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.GET,
-                    entity,
-                    MangaDexDto.ChapterListResponse.class
-            );
+            while (offset < total) {
+                String url = String.format(
+                        "%s/manga/%s/feed?translatedLanguage[]=vi&order[chapter]=asc&limit=%d&offset=%d&includes[]=scanlation_group",
+                        API_BASE, mangaDexId, limit, offset
+                );
 
-            if (response.getBody() == null || response.getBody().getData() == null) {
-                return;
-            }
+                HttpHeaders headers = createMangaDexHeaders();
+                HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-            List<MangaDexDto.ChapterData> chapterList = response.getBody().getData();
-            if (chapterList.isEmpty()) {
-                return;
-            }
+                throttle();
+                ResponseEntity<MangaDexDto.ChapterListResponse> response = restTemplate.exchange(
+                        url,
+                        HttpMethod.GET,
+                        entity,
+                        MangaDexDto.ChapterListResponse.class
+                );
 
-            Set<String> existingChapterNames = chapterRepository.findChapterNamesByStoryId(story.getId());
-            List<Chapter> chaptersToSave = new ArrayList<>();
-
-            for (MangaDexDto.ChapterData chData : chapterList) {
-                if (chData.getAttributes() == null) continue;
-
-                String rawChapterName = chData.getAttributes().getChapter();
-                String chapterName = (rawChapterName != null && !rawChapterName.isBlank()) ? rawChapterName : "1";
-
-                if (existingChapterNames.contains(chapterName)) {
-                    continue;
+                if (response.getBody() == null || response.getBody().getData() == null) {
+                    break;
                 }
 
-                String chapterTitle = chData.getAttributes().getTitle();
-                String groupName = chData.getScanlationGroupName();
-                if (groupName != null && !groupName.isBlank()) {
-                    chapterTitle = (chapterTitle != null && !chapterTitle.isBlank())
-                            ? chapterTitle + " [" + groupName + "]"
-                            : "[" + groupName + "]";
+                Integer apiTotal = response.getBody().getTotal();
+                total = apiTotal != null ? apiTotal : 0;
+
+                List<MangaDexDto.ChapterData> chapterList = response.getBody().getData();
+                if (chapterList.isEmpty()) {
+                    break;
                 }
 
-                String chapterApiData = API_BASE + "/at-home/server/" + chData.getId();
+                List<Chapter> chaptersToSave = new ArrayList<>();
+                for (MangaDexDto.ChapterData chData : chapterList) {
+                    if (chData.getAttributes() == null) continue;
 
-                Chapter chapter = Chapter.builder()
-                        .id("md-ch-" + chData.getId())
-                        .story(story)
-                        .chapterName(chapterName)
-                        .chapterTitle(chapterTitle)
-                        .chapterApiData(chapterApiData)
-                        .isContentSynced(false)
-                        .imagesJson(Collections.emptyList())
-                        .build();
+                    String rawChapterName = chData.getAttributes().getChapter();
+                    String chapterName = (rawChapterName != null && !rawChapterName.isBlank()) ? rawChapterName : "1";
 
-                chaptersToSave.add(chapter);
-                existingChapterNames.add(chapterName);
-            }
-
-            if (!chaptersToSave.isEmpty()) {
-                List<Chapter> saved = chapterRepository.saveAll(chaptersToSave);
-                log.info("Luu thanh cong {} chapters Tieng Viet cho truyen '{}'", saved.size(), story.getName());
-
-                // Prefetch 5 chuong dau tien vao database de nguoi doc mo tuc thi trong vai ms
-                int prefetchCount = Math.min(5, saved.size());
-                for (int i = 0; i < prefetchCount; i++) {
-                    try {
-                        throttle();
-                        fetchChapterPages(saved.get(i));
-                    } catch (Exception e) {
-                        log.warn("Loi prefetch chapter {} cho truyen {}: {}", saved.get(i).getChapterName(), story.getName(), e.getMessage());
+                    if (existingChapterNames.contains(chapterName)) {
+                        continue;
                     }
+
+                    String chapterTitle = chData.getAttributes().getTitle();
+                    String groupName = chData.getScanlationGroupName();
+                    if (groupName != null && !groupName.isBlank()) {
+                        chapterTitle = (chapterTitle != null && !chapterTitle.isBlank())
+                                ? chapterTitle + " [" + groupName + "]"
+                                : "[" + groupName + "]";
+                    }
+
+                    String chapterApiData = API_BASE + "/at-home/server/" + chData.getId();
+
+                    Chapter chapter = Chapter.builder()
+                            .id("md-ch-" + chData.getId())
+                            .story(story)
+                            .chapterName(chapterName)
+                            .chapterTitle(chapterTitle)
+                            .chapterApiData(chapterApiData)
+                            .isContentSynced(false)
+                            .imagesJson(Collections.emptyList())
+                            .build();
+
+                    chaptersToSave.add(chapter);
+                    existingChapterNames.add(chapterName);
                 }
+
+                if (!chaptersToSave.isEmpty()) {
+                    List<Chapter> saved = chapterRepository.saveAll(chaptersToSave);
+                    newlySavedChapters.addAll(saved);
+                }
+
+                offset += limit;
+            }
+
+            if (!newlySavedChapters.isEmpty()) {
+                log.info("Luu thanh cong {} chapters Tieng Viet cho truyen '{}'", newlySavedChapters.size(), story.getName());
+                // Kich hoat tien trinh pre-fetch toan bo chuong chay ngam
+                prefetchAllRemainingChaptersAsync(story.getId());
             }
 
         } catch (Exception e) {
             log.error("Loi khi lay feed chapter cua manga {}: {}", mangaDexId, e.getMessage());
         }
+    }
+
+    /**
+     * Tien trinh chay ngam pre-fetch anh cho toan bo chapter chua duoc sync cua mot truyen.
+     */
+    @Async("taskExecutor")
+    public CompletableFuture<Void> prefetchAllRemainingChaptersAsync(String storyId) {
+        List<Chapter> unsyncedChapters = chapterRepository.findByStoryIdAndIsContentSyncedFalseOrderByCreatedAtAsc(storyId);
+        if (unsyncedChapters.isEmpty()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        log.info("Bat dau tien trinh chay ngam prefetch {} chuong cho truyen id: {}", unsyncedChapters.size(), storyId);
+        for (Chapter ch : unsyncedChapters) {
+            try {
+                throttle();
+                fetchChapterPages(ch);
+            } catch (Exception e) {
+                log.warn("Loi khi prefetch chapter {} (id: {}): {}", ch.getChapterName(), ch.getId(), e.getMessage());
+            }
+        }
+        log.info("Hoan tat tien trinh prefetch toan bo chuong cho truyen id: {}", storyId);
+        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -370,6 +420,29 @@ public class MangaDexSyncService {
     }
 
     /**
+     * Lam sach va giai ma chuoi mo ta khoi cac ma ky tu URL va dinh dang markdown/bbcode/hash.
+     */
+    public static String cleanDescription(String text) {
+        if (text == null || text.isBlank()) return "";
+        String result = text;
+        for (int i = 0; i < 3 && result.contains("%"); i++) {
+            try {
+                result = URLDecoder.decode(result, StandardCharsets.UTF_8);
+            } catch (Exception ignored) {
+                break;
+            }
+        }
+        result = result.replaceAll("\\b[a-f0-9]{32}\\b", "")
+                       .replaceAll("\\[/?(?:b|i|u|s|spoiler|url|quote)[^\\]]*\\]", "")
+                       .replaceAll("\\[([^\\]]+)\\]\\([^\\)]+\\)", "$1")
+                       .replaceAll("[*#_~`]", "")
+                       .replaceAll("[ \\t]+", " ")
+                       .replaceAll("\\n\\s*\\n", "\n\n")
+                       .trim();
+        return result;
+    }
+
+    /**
      * Tu dong dich mo ta sang tieng Viet bang Google Translate endpoint mien phi.
      */
     public String translateToVietnamese(String text) {
@@ -377,41 +450,39 @@ public class MangaDexSyncService {
             return "";
         }
         try {
-            String trimmed = text.length() > 1000 ? text.substring(0, 1000) : text;
-            String url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=vi&dt=t&q="
-                    + URLEncoder.encode(trimmed, StandardCharsets.UTF_8);
+            String cleanInput = cleanDescription(text);
+            String trimmed = cleanInput.length() > 1000 ? cleanInput.substring(0, 1000) : cleanInput;
 
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
-            if (response.getBody() != null && response.getBody().startsWith("[[[")) {
-                String body = response.getBody();
-                StringBuilder sb = new StringBuilder();
-                int idx = 0;
-                while ((idx = body.indexOf("[\"", idx)) != -1) {
-                    int end = body.indexOf("\",\"", idx + 2);
-                    if (end != -1) {
-                        String sentence = body.substring(idx + 2, end);
-                        sb.append(sentence).append(" ");
-                        idx = end + 3;
-                    } else {
-                        break;
+            URI uri = UriComponentsBuilder.fromHttpUrl("https://translate.googleapis.com/translate_a/single")
+                    .queryParam("client", "gtx")
+                    .queryParam("sl", "auto")
+                    .queryParam("tl", "vi")
+                    .queryParam("dt", "t")
+                    .queryParam("q", trimmed)
+                    .build()
+                    .toUri();
+
+            ResponseEntity<String> response = restTemplate.getForEntity(uri, String.class);
+            if (response.getBody() != null) {
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode root = mapper.readTree(response.getBody());
+                if (root.isArray() && !root.isEmpty() && root.get(0).isArray()) {
+                    StringBuilder sb = new StringBuilder();
+                    for (JsonNode sentenceNode : root.get(0)) {
+                        if (sentenceNode.isArray() && !sentenceNode.isEmpty()) {
+                            sb.append(sentenceNode.get(0).asText());
+                        }
                     }
-                }
-                String result = sb.toString().trim();
-                if (result.contains("%")) {
-                    try {
-                        result = URLDecoder.decode(result, StandardCharsets.UTF_8);
-                    } catch (Exception ignored) {
+                    String translated = cleanDescription(sb.toString());
+                    if (!translated.isBlank()) {
+                        return translated;
                     }
-                }
-                result = result.replaceAll("\\b[a-f0-9]{32}\\b", "").trim();
-                if (!result.isBlank()) {
-                    return result;
                 }
             }
         } catch (Exception e) {
             log.warn("Khong the dich mo ta sang tieng Viet: {}", e.getMessage());
         }
-        return text;
+        return cleanDescription(text);
     }
 
     private boolean isMostlyEnglish(String text) {

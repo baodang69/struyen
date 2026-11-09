@@ -25,4 +25,13 @@ public interface ChapterRepository extends JpaRepository<Chapter, String> {
      */
     java.util.List<Chapter> findByStoryIdOrderByCreatedAtAsc(String storyId);
 
+    /**
+     * Lấy các chương chưa đồng bộ nội dung ảnh để tiến hành pre-fetch toàn bộ.
+     */
+    java.util.List<Chapter> findByStoryIdAndIsContentSyncedFalseOrderByCreatedAtAsc(String storyId);
+
+    /**
+     * Đếm số lượng chương chưa đồng bộ nội dung ảnh của một truyện.
+     */
+    long countByStoryIdAndIsContentSyncedFalse(String storyId);
 }
