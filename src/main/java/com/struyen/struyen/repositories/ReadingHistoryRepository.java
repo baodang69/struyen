@@ -19,3 +19,4 @@ public interface ReadingHistoryRepository extends JpaRepository<ReadingHistory, 
 
     void deleteByUserIdAndStoryId(Long userId, String storyId);
 }
+

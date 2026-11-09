@@ -24,3 +24,4 @@ public class CreateCommentRequest {
     @Size(min = 1, max = 2000, message = "Noi dung binh luan tu 1 den 2000 ky tu")
     private String content;
 }
+

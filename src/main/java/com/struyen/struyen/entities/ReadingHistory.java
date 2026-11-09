@@ -37,3 +37,4 @@ public class ReadingHistory {
     @Column(name = "reading_at")
     private LocalDateTime readingAt;
 }
+

@@ -18,3 +18,4 @@ public class RecordHistoryRequest {
     @NotBlank(message = "chapterId khong duoc de trong")
     private String chapterId;
 }
+

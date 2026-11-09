@@ -23,3 +23,4 @@ public interface StorySubscriptionRepository extends JpaRepository<StorySubscrip
 
     long countByStoryId(String storyId);
 }
+
