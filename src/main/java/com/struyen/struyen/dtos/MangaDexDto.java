@@ -218,3 +218,4 @@ public class MangaDexDto {
         private List<String> dataSaver;
     }
 }
+

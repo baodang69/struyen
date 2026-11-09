@@ -136,8 +136,9 @@ class MangaDexSyncServiceTest {
         assertEquals("cau-chuyen-anh-hung", syncedStory.getSlug());
         assertEquals("Mo ta tieng Viet", syncedStory.getDescription());
         assertEquals("Oda Eiichiro", syncedStory.getAuthor());
-        assertEquals("https://uploads.mangadex.org/covers/manga-uuid-123/cover.jpg.512.jpg", syncedStory.getThumbUrl());
+        assertEquals("https://uploads.mangadex.org/covers/manga-uuid-123/cover.jpg", syncedStory.getThumbUrl());
         assertEquals("https://uploads.mangadex.org", syncedStory.getCdnDomain());
         assertEquals(1, syncedStory.getCategories().size());
     }
 }
+

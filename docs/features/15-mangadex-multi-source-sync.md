@@ -13,8 +13,12 @@
 - **Muc dich:** Bo sung nguon truyen tranh hop phap, on dinh va mien phi tu MangaDex API de giai quyet su co may chu Otruyen bi dung hoat dong.
 - **Pham vi:**
   - Tich hop REST API MangaDex (`https://api.mangadex.org`) de crawl metadata truyen co ban dich Tieng Viet.
+  - Tu dong dich mo ta Tieng Anh sang Tieng Viet thong qua Google Translate API.
+  - Viet hoa toan bo danh muc/the loai MangaDex (`VIETNAMESE_TAG_MAP`).
+  - Pre-fetch tu dong 5 chuong dau tien vao PostgreSQL de nguoi doc mo truyen khong phai cho doi At-Home server.
+  - Co che DNS Fallback (Custom DnsResolver) giai quyet triet de tinh trang ISP chan domain MangaDex.
   - Mo rong Image Proxy Service ho tro cac domain CDN cua MangaDex (`uploads.mangadex.org` va `*.mangadex.network`).
-  - Thuc hien co che On-demand Chapter Loading: Lay danh sach anh chapter tu MangaDex At-Home Server khi nguoi dung doc chuong.
+  - Thuc hien co che On-demand Chapter Loading cho cac chuong tiep theo khi nguoi dung doc.
   - Tuan thu Acceptable Use Policy cua MangaDex: su dung User-Agent dinh danh trung thuc va ap dung throttle <= 5 req/s.
 - **Yeu cau ky thuat:** Spring Boot 3, Java 21, RestTemplate, PostgreSQL (JSONB cho chapter images), Mockito.
 
@@ -150,3 +154,4 @@ Dong bo thanh cong truyen MangaDex id: a77742b1-befd-49a4-bff5-1ad4e6b0ef7b
   curl -I "http://localhost:8080/api/v1/proxy/image?url=https%3A%2F%2Fuploads.mangadex.org%2Fcovers%2Fa77742b1-befd-49a4-bff5-1ad4e6b0ef7b%2F6e518bd1-5f60-446b-8832-bfe6bf74834b.jpg.512.jpg"
   ```
   Ket qua: HTTP/1.1 200, Content-Type: image/jpeg.
+

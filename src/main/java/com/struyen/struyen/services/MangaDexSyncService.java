@@ -14,9 +14,13 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -39,6 +43,48 @@ public class MangaDexSyncService {
     private static final String CDN_DOMAIN_MANGADEX = "https://uploads.mangadex.org";
 
     private static final Pattern DIACRITICS_PATTERN = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
+
+    private static final Map<String, String> VIETNAMESE_TAG_MAP = Map.ofEntries(
+            Map.entry("action", "Hành Động"),
+            Map.entry("adventure", "Phiêu Lưu"),
+            Map.entry("comedy", "Hài Hước"),
+            Map.entry("drama", "Kịch Tính"),
+            Map.entry("fantasy", "Giả Tưởng"),
+            Map.entry("horror", "Kinh Dị"),
+            Map.entry("mystery", "Bí Ẩn"),
+            Map.entry("psychological", "Tâm Lý"),
+            Map.entry("romance", "Lãng Mạn"),
+            Map.entry("sci-fi", "Khoa Học Viễn Tưởng"),
+            Map.entry("slice of life", "Đời Thường"),
+            Map.entry("sports", "Thể Thao"),
+            Map.entry("supernatural", "Siêu Nhiên"),
+            Map.entry("tragedy", "Bi Kịch"),
+            Map.entry("isekai", "Chuyển Sinh"),
+            Map.entry("martial arts", "Võ Thuật"),
+            Map.entry("school life", "Học Đường"),
+            Map.entry("monsters", "Quái Vật"),
+            Map.entry("demons", "Ma Quỷ"),
+            Map.entry("magic", "Ma Pháp"),
+            Map.entry("time travel", "Du Hành Thời Gian"),
+            Map.entry("historical", "Lịch Sử"),
+            Map.entry("award winning", "Đoạt Giải Thưởng"),
+            Map.entry("reincarnation", "Trùng Sinh"),
+            Map.entry("survival", "Sinh Tồn"),
+            Map.entry("military", "Quân Sự"),
+            Map.entry("superhero", "Siêu Anh Hùng"),
+            Map.entry("villainess", "Ác Nữ"),
+            Map.entry("virtual reality", "Thực Tế Ảo"),
+            Map.entry("zombies", "Zombie"),
+            Map.entry("vampires", "Ma Cà Rồng"),
+            Map.entry("crime", "Tội Phạm"),
+            Map.entry("detective", "Thám Tử"),
+            Map.entry("cooking", "Ẩm Thực"),
+            Map.entry("video games", "Trò Chơi Điện Tử"),
+            Map.entry("aliens", "Người Ngoài Hành Tinh"),
+            Map.entry("post-apocalyptic", "Hậu Tận Thế"),
+            Map.entry("crossdressing", "Giả Trang"),
+            Map.entry("gender bender", "Hoán Đổi Giới Tính")
+    );
 
     /**
      * Dong bo danh sach truyen Tieng Viet pho bien nhat tu MangaDex (chay ngam bat dong bo).
@@ -146,15 +192,23 @@ public class MangaDexSyncService {
         }
         story.setSlug(slug);
 
-        story.setDescription(mangaData.getPreferredDescription());
+        // Uu tien mo ta Tieng Viet, neu chi co tieng Anh thi tu dong dich sang Tieng Viet
+        String rawDescription = mangaData.getPreferredDescription();
+        String viDescription = rawDescription;
+        if (isMostlyEnglish(rawDescription)) {
+            viDescription = translateToVietnamese(rawDescription);
+        }
+        story.setDescription(viDescription);
+
         story.setStatus(mangaData.getAttributes() != null ? mangaData.getAttributes().getStatus() : "ongoing");
 
         String author = mangaData.getAuthorName();
-        story.setAuthor(author != null && !author.isBlank() ? author : "Updating");
+        story.setAuthor(author != null && !author.isBlank() ? author : "Đang cập nhật");
 
+        // Luu anh bia goc MangaDex dam bao luon luon ton tai va fetch thanh cong
         String coverFileName = mangaData.getCoverFileName();
         if (coverFileName != null && !coverFileName.isBlank()) {
-            story.setThumbUrl(String.format("%s/%s/%s.512.jpg", COVER_BASE_URL, mangaData.getId(), coverFileName));
+            story.setThumbUrl(String.format("%s/%s/%s", COVER_BASE_URL, mangaData.getId(), coverFileName));
         } else {
             story.setThumbUrl("");
         }
@@ -165,13 +219,13 @@ public class MangaDexSyncService {
         }
         story.setLastSyncedAt(LocalDateTime.now());
 
-        // Dong bo the loai (Categories)
+        // Dong bo the loai (Categories) voi ten Tieng Viet chuan
         Set<Category> categories = extractCategories(mangaData);
         story.setCategories(categories);
 
         Story savedStory = storyRepository.save(story);
 
-        // Dong bo danh sach Chapter Tieng Viet
+        // Dong bo danh sach Chapter Tieng Viet kem prefetch anh 5 chuong dau tien
         syncChaptersForManga(savedStory, mangaData.getId());
 
         log.info("Dong bo thanh cong truyen MangaDex: '{}' (slug: {})", savedStory.getName(), savedStory.getSlug());
@@ -180,6 +234,7 @@ public class MangaDexSyncService {
 
     /**
      * Lay danh sach chapter Tieng Viet cua manga va luu vao DB.
+     * Prefetch luon 5 chapter dau tien de nguoi doc mo chapter tuc thi (Zero Wait Time).
      */
     public void syncChaptersForManga(Story story, String mangaDexId) {
         String url = String.format(
@@ -246,8 +301,19 @@ public class MangaDexSyncService {
             }
 
             if (!chaptersToSave.isEmpty()) {
-                chapterRepository.saveAll(chaptersToSave);
-                log.info("Luu thanh cong {} chapters Tieng Viet cho truyen '{}'", chaptersToSave.size(), story.getName());
+                List<Chapter> saved = chapterRepository.saveAll(chaptersToSave);
+                log.info("Luu thanh cong {} chapters Tieng Viet cho truyen '{}'", saved.size(), story.getName());
+
+                // Prefetch 5 chuong dau tien vao database de nguoi doc mo tuc thi trong vai ms
+                int prefetchCount = Math.min(5, saved.size());
+                for (int i = 0; i < prefetchCount; i++) {
+                    try {
+                        throttle();
+                        fetchChapterPages(saved.get(i));
+                    } catch (Exception e) {
+                        log.warn("Loi prefetch chapter {} cho truyen {}: {}", saved.get(i).getChapterName(), story.getName(), e.getMessage());
+                    }
+                }
             }
 
         } catch (Exception e) {
@@ -257,15 +323,14 @@ public class MangaDexSyncService {
 
     /**
      * Goi API MangaDex At-Home server de lay danh sach link anh cua chapter.
-     * Phuong thuc nay duoc goi On-Demand khi doc chuong hoac khi dong bo truoc.
      */
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Chapter fetchChapterPages(Chapter chapter) {
         if (chapter.getChapterApiData() == null || chapter.getChapterApiData().isBlank()) {
             return chapter;
         }
 
-        log.info("On-Demand Loading: Lay danh sach trang cho chapter id: {}", chapter.getId());
+        log.info("Lay danh sach trang cho chapter id: {}", chapter.getId());
         HttpHeaders headers = createMangaDexHeaders();
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
@@ -305,7 +370,59 @@ public class MangaDexSyncService {
     }
 
     /**
-     * Trich xuat va tao Category neu chua ton tai.
+     * Tu dong dich mo ta sang tieng Viet bang Google Translate endpoint mien phi.
+     */
+    public String translateToVietnamese(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        try {
+            String trimmed = text.length() > 1000 ? text.substring(0, 1000) : text;
+            String url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=vi&dt=t&q="
+                    + URLEncoder.encode(trimmed, StandardCharsets.UTF_8);
+
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            if (response.getBody() != null && response.getBody().startsWith("[[[")) {
+                String body = response.getBody();
+                StringBuilder sb = new StringBuilder();
+                int idx = 0;
+                while ((idx = body.indexOf("[\"", idx)) != -1) {
+                    int end = body.indexOf("\",\"", idx + 2);
+                    if (end != -1) {
+                        String sentence = body.substring(idx + 2, end);
+                        sb.append(sentence).append(" ");
+                        idx = end + 3;
+                    } else {
+                        break;
+                    }
+                }
+                String result = sb.toString().trim();
+                if (result.contains("%")) {
+                    try {
+                        result = URLDecoder.decode(result, StandardCharsets.UTF_8);
+                    } catch (Exception ignored) {
+                    }
+                }
+                result = result.replaceAll("\\b[a-f0-9]{32}\\b", "").trim();
+                if (!result.isBlank()) {
+                    return result;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Khong the dich mo ta sang tieng Viet: {}", e.getMessage());
+        }
+        return text;
+    }
+
+    private boolean isMostlyEnglish(String text) {
+        if (text == null || text.isBlank()) return false;
+        // Kiem tra neu khong chua bat ky ky tu co dau tieng Viet nao
+        boolean hasVietnameseAccents = text.matches(".*[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ].*");
+        return !hasVietnameseAccents;
+    }
+
+    /**
+     * Trich xuat va tao Category neu chua ton tai voi ten Tieng Viet chuan.
      */
     private Set<Category> extractCategories(MangaDexDto.MangaData mangaData) {
         Set<Category> categories = new HashSet<>();
@@ -317,11 +434,14 @@ public class MangaDexSyncService {
             String tagName = tag.getTagName();
             if (tagName == null || tagName.isBlank()) continue;
 
+            String lower = tagName.trim().toLowerCase();
+            String viName = VIETNAMESE_TAG_MAP.getOrDefault(lower, tagName);
             String slug = toSlug(tagName);
+
             Category category = categoryRepository.findBySlug(slug).orElseGet(() -> {
                 Category newCat = Category.builder()
                         .id("cat-" + slug)
-                        .name(tagName)
+                        .name(viName)
                         .slug(slug)
                         .build();
                 return categoryRepository.save(newCat);
