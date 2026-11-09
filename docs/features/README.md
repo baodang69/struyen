@@ -16,6 +16,8 @@ Bảng danh sách tổng hợp tất cả các tính năng (features) đã hoàn
 | F-06 | `STORY-DETAIL-READER` | API Chi tiết truyện & Nội dung đọc chương (Proxy ảnh, Prev/Next) | Hoàn thành | 2026-11-09 | [06-story-detail-and-reader-api.md](./06-story-detail-and-reader-api.md) |
 | F-07 | `PUBLIC-CATEGORY-API` | API Danh mục thể loại truyện công khai | Hoàn thành | 2026-11-09 | [07-public-category-api.md](./07-public-category-api.md) |
 | F-08 | `ELASTICSEARCH-SEARCH` | Tìm kiếm Elasticsearch & Auto-suggestion tối thiểu 5 truyện | Dự thảo / Planning | - | [08-elasticsearch-search-and-suggestion.md](./08-elasticsearch-search-and-suggestion.md) |
+| F-09 | `USER-AUTH-JWT` | Hệ thống Định danh, Đăng ký, Đăng nhập & Xác thực JWT | Hoàn thành | 2026-11-09 | [09-user-authentication-jwt.md](./09-user-authentication-jwt.md) |
+
 
 
 
