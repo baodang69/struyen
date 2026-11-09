@@ -241,12 +241,18 @@ public class OtruyenSyncService {
         }
 
         // 2. Cập nhật thông tin Story và lưu vào Database trong transaction ngắn
+        String cdnDomain = response.getBody().getData().getAppDomainCdnImage();
+        if (cdnDomain == null || cdnDomain.isBlank()) {
+            cdnDomain = "https://img.otruyenapi.com/uploads/comics";
+        }
+
         story.setId(apiStory.getId());
         story.setName(apiStory.getName());
         story.setSlug(apiStory.getSlug());
         story.setDescription(apiStory.getContent() != null ? apiStory.getContent() : "");
         story.setStatus(apiStory.getStatus());
         story.setThumbUrl(apiStory.getThumbUrl());
+        story.setCdnDomain(cdnDomain);
         story.setAuthor(apiStory.getAuthor() != null ? String.join(", ", apiStory.getAuthor()) : "Updating");
         story.setOriginUpdatedAt(apiUpdatedTime);
         story.setLastSyncedAt(LocalDateTime.now());

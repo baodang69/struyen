@@ -16,12 +16,16 @@ public class OtruyenDto {
 
     @Data
     public static class ListData {
+        @JsonProperty("APP_DOMAIN_CDN_IMAGE")
+        private String appDomainCdnImage;
         private List<StoryItem> items;
         private Pagination pagination;
     }
 
     @Data
     public static class DetailData {
+        @JsonProperty("APP_DOMAIN_CDN_IMAGE")
+        private String appDomainCdnImage;
         private StoryItem item;
     }
 

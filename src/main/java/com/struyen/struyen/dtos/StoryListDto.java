@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class StoryListDto {
+    public static final String DEFAULT_CDN_IMAGE_DOMAIN = "https://img.otruyenapi.com/uploads/comics";
+
     private String id;
     private String name;
     private String slug;
@@ -24,12 +26,16 @@ public class StoryListDto {
     private LocalDateTime updatedAt;
     
     public static StoryListDto fromEntity(Story story) {
+        String cdn = (story.getCdnDomain() != null && !story.getCdnDomain().isBlank())
+                ? story.getCdnDomain()
+                : DEFAULT_CDN_IMAGE_DOMAIN;
+
         return StoryListDto.builder()
                 .id(story.getId())
                 .name(story.getName())
                 .slug(story.getSlug())
                 .thumbUrl(story.getThumbUrl())
-                .cdnDomain(story.getCdnDomain())
+                .cdnDomain(cdn)
                 .status(story.getStatus())
                 .viewCount(story.getViewCount())
                 .isFeatured(story.getIsFeatured())

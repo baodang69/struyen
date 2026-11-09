@@ -29,6 +29,8 @@ public class StoryDetailDto {
     private List<CategoryDto> categories;
     private List<ChapterShortDto> chapters;
 
+    public static final String DEFAULT_CDN_IMAGE_DOMAIN = "https://img.otruyenapi.com/uploads/comics";
+
     public static StoryDetailDto fromEntity(Story story, List<ChapterShortDto> chapters) {
         if (story == null) return null;
 
@@ -36,12 +38,16 @@ public class StoryDetailDto {
                 ? story.getCategories().stream().map(CategoryDto::fromEntity).toList()
                 : Collections.emptyList();
 
+        String cdn = (story.getCdnDomain() != null && !story.getCdnDomain().isBlank())
+                ? story.getCdnDomain()
+                : DEFAULT_CDN_IMAGE_DOMAIN;
+
         return StoryDetailDto.builder()
                 .id(story.getId())
                 .name(story.getName())
                 .slug(story.getSlug())
                 .thumbUrl(story.getThumbUrl())
-                .cdnDomain(story.getCdnDomain())
+                .cdnDomain(cdn)
                 .status(story.getStatus())
                 .author(story.getAuthor())
                 .description(story.getDescription())

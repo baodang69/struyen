@@ -84,3 +84,4 @@ class ImageProxyServiceTest {
         assertEquals(MediaType.parseMediaType("image/svg+xml"), response.getHeaders().getContentType());
     }
 }
+
