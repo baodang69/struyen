@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 
 @Data
 @Builder
@@ -24,11 +26,16 @@ public class StoryListDto {
     private Long viewCount;
     private Boolean isFeatured;
     private LocalDateTime updatedAt;
+    private List<CategoryDto> categories;
     
     public static StoryListDto fromEntity(Story story) {
         String cdn = (story.getCdnDomain() != null && !story.getCdnDomain().isBlank())
                 ? story.getCdnDomain()
                 : DEFAULT_CDN_IMAGE_DOMAIN;
+
+        List<CategoryDto> categoryDtos = (story.getCategories() != null)
+                ? story.getCategories().stream().map(CategoryDto::fromEntity).toList()
+                : Collections.emptyList();
 
         return StoryListDto.builder()
                 .id(story.getId())
@@ -40,6 +47,7 @@ public class StoryListDto {
                 .viewCount(story.getViewCount())
                 .isFeatured(story.getIsFeatured())
                 .updatedAt(story.getUpdatedAt())
+                .categories(categoryDtos)
                 .build();
     }
 }

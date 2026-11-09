@@ -37,28 +37,45 @@
 ```json
 [
   {
-    "id": "64bc1001",
-    "name": "Action",
+    "id": "cat-action",
+    "name": "Hành Động",
     "slug": "action"
   },
   {
-    "id": "64bc1002",
-    "name": "Fantasy",
-    "slug": "fantasy"
-  },
-  {
-    "id": "64bc1003",
-    "name": "Manhwa",
-    "slug": "manhwa"
+    "id": "cat-comedy",
+    "name": "Hài Hước",
+    "slug": "comedy"
   }
 ]
 ```
 
+### 3.2 Lọc danh sách truyện theo thể loại linh hoạt
+- **Method:** `GET`
+- **URL:** `/api/v1/public/stories?category={category}`
+- **Hỗ trợ định dạng tham số `category` đa dạng:**
+  - Tên tiếng Việt: `?category=Hành Động` hoặc `?category=hành động`
+  - Slug tiếng Anh: `?category=action`
+  - Slug tiếng Việt không dấu: `?category=hanh-dong`
+  - ID thể loại: `?category=cat-action`
+  - Lấy tất cả: không truyền hoặc truyền `?category=Tất cả`
+- **Response mẫu (200 OK):**
+  Trả về `PageResponse<StoryListDto>` trong đó mỗi item chứa trường `categories` danh sách thể loại đầy đủ.
+
 ---
 
-## 4. Hướng dẫn kiểm thử (curl)
+## 4. Hướng dẫn kiểm thử (curl / PowerShell)
 
 ```bash
+# Lấy danh mục thể loại
 curl "http://localhost:8080/api/v1/public/categories"
+
+# Lọc truyện theo tên tiếng Việt
+curl "http://localhost:8080/api/v1/public/stories?category=Hành%20Động"
+
+# Lọc truyện theo slug tiếng Anh
+curl "http://localhost:8080/api/v1/public/stories?category=action"
+
+# Lọc truyện theo slug không dấu
+curl "http://localhost:8080/api/v1/public/stories?category=hanh-dong"
 ```
 

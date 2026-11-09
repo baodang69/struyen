@@ -35,16 +35,35 @@ public class PublicStoryService {
     private final MangaDexSyncService mangaDexSyncService;
 
     /**
-     * Lấy danh sách truyện có phân trang và lọc theo thể loại.
+     * Lay danh sach truyen co phan trang va loc theo the loai.
+     * Ho tro loc linh hoat theo slug tieng Anh, ten Tieng Viet hoac slug Tieng Viet khong dau.
      */
     @Transactional(readOnly = true)
-    public PageResponse<StoryListDto> getStories(int page, int size, String categorySlug) {
+    public PageResponse<StoryListDto> getStories(int page, int size, String category) {
         int springPage = page > 0 ? page - 1 : 0;
         Pageable pageable = PageRequest.of(springPage, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
 
         Page<Story> storyPage;
-        if (categorySlug != null && !categorySlug.isBlank()) {
-            storyPage = storyRepository.findByIsActiveTrueAndCategoriesSlug(categorySlug, pageable);
+        if (category != null && !category.isBlank() && !category.equalsIgnoreCase("Tất cả") && !category.equalsIgnoreCase("all")) {
+            String trimmed = category.trim();
+            String slugifiedInput = MangaDexSyncService.toSlug(trimmed);
+
+            // Tim Category trong he thong khop theo: name (case-insensitive), slug (case-insensitive), hoac slugified name
+            List<Category> allCategories = categoryRepository.findAll();
+            Category matchedCategory = allCategories.stream()
+                    .filter(c -> c.getName().equalsIgnoreCase(trimmed)
+                            || c.getSlug().equalsIgnoreCase(trimmed)
+                            || MangaDexSyncService.toSlug(c.getName()).equalsIgnoreCase(slugifiedInput)
+                            || c.getSlug().equalsIgnoreCase(slugifiedInput)
+                            || c.getId().equalsIgnoreCase(trimmed))
+                    .findFirst()
+                    .orElse(null);
+
+            if (matchedCategory != null) {
+                storyPage = storyRepository.findByIsActiveTrueAndCategoriesId(matchedCategory.getId(), pageable);
+            } else {
+                storyPage = storyRepository.findByIsActiveTrueAndCategory(trimmed, pageable);
+            }
         } else {
             storyPage = storyRepository.findByIsActiveTrue(pageable);
         }
