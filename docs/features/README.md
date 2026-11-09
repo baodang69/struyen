@@ -17,6 +17,9 @@ Bảng danh sách tổng hợp tất cả các tính năng (features) đã hoàn
 | F-07 | `PUBLIC-CATEGORY-API` | API Danh mục thể loại truyện công khai | Hoàn thành | 2026-11-09 | [07-public-category-api.md](./07-public-category-api.md) |
 | F-08 | `ELASTICSEARCH-SEARCH` | Tìm kiếm Elasticsearch & Auto-suggestion tối thiểu 5 truyện | Dự thảo / Planning | - | [08-elasticsearch-search-and-suggestion.md](./08-elasticsearch-search-and-suggestion.md) |
 | F-09 | `USER-AUTH-JWT` | Hệ thống Định danh, Đăng ký, Đăng nhập & Xác thực JWT | Hoàn thành | 2026-11-09 | [09-user-authentication-jwt.md](./09-user-authentication-jwt.md) |
+| F-10 | `PERSONAL-LIBRARY` | Thư viện cá nhân: Theo dõi truyện & Lịch sử đọc truyện | Hoàn thành | 2026-11-09 | [10-personal-library.md](./10-personal-library.md) |
+| F-11 | `COMMENT-SYSTEM` | Hệ thống Bình luận đa cấp, Trả lời (Reply) & Thả tim (Like) | Hoàn thành | 2026-11-09 | [11-comment-and-reply-system.md](./11-comment-and-reply-system.md) |
+
 
 
 

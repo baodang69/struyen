@@ -64,8 +64,9 @@ Toàn bộ dữ liệu thô được khai thác từ Otruyen:
 
 ### Giai đoạn 3: Social & Notification
 - [x] Hệ thống Auth & JWT (Đăng ký, Đăng nhập, Profile, Phân quyền).
-- [ ] Tính năng Theo dõi, Lịch sử đọc và Bình luận.
+- [x] Tính năng Theo dõi (Subscription), Lịch sử đọc (Reading History) và Bình luận đa cấp (Comments & Replies).
 - [ ] Hệ thống thông báo tự động khi có chương mới.
+
 
 
 ### Giai đoạn 4: Optimization & Admin

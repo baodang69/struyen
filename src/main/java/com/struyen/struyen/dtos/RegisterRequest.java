@@ -29,3 +29,4 @@ public class RegisterRequest {
     @Size(min = 6, max = 100, message = "Password phai co it nhat 6 ky tu")
     private String password;
 }
+

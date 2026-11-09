@@ -71,3 +71,4 @@ public class CustomUserDetails implements UserDetails {
         return "ACTIVE".equalsIgnoreCase(userStatus);
     }
 }
+

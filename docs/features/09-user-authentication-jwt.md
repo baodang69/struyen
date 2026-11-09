@@ -163,3 +163,4 @@ curl -X POST "http://localhost:8080/api/v1/auth/login" \
 curl -X GET "http://localhost:8080/api/v1/auth/me" \
   -H "Authorization: Bearer <TOKEN_O_BUOC_2>"
 ```
+
