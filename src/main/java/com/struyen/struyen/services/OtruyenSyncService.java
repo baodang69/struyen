@@ -12,20 +12,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import org.springframework.scheduling.annotation.Async;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -41,41 +36,48 @@ public class OtruyenSyncService {
     private static final String API_STORY_DETAIL = "https://otruyenapi.com/v1/api/truyen-tranh/";
 
     /**
-     * Đồng bộ danh sách truyện mới báo cáo trên API (trang 1)
+     * Đồng bộ danh sách truyện mới báo cáo trên API (theo page)
      */
     public void syncNewStories(int page) {
         log.info("Started syncing new stories at page {}", page);
         String url = API_NEW_STORIES + page;
-        ResponseEntity<OtruyenDto.BaseResponse<OtruyenDto.ListData>> response = restTemplate.exchange(
-                url, HttpMethod.GET, null,
-                new ParameterizedTypeReference<OtruyenDto.BaseResponse<OtruyenDto.ListData>>() {}
-        );
+        try {
+            ResponseEntity<OtruyenDto.BaseResponse<OtruyenDto.ListData>> response = restTemplate.exchange(
+                    url, HttpMethod.GET, null,
+                    new ParameterizedTypeReference<OtruyenDto.BaseResponse<OtruyenDto.ListData>>() {}
+            );
 
-        if (response.getBody() != null && "success".equals(response.getBody().getStatus())) {
-            List<OtruyenDto.StoryItem> items = response.getBody().getData().getItems();
-            
-            // 1. Áp dụng Bộ lọc Tiền Tuyến (Pre-filtering)
-            List<String> slugs = items.stream().map(OtruyenDto.StoryItem::getSlug).toList();
-            List<Story> existingStories = storyRepository.findBySlugIn(slugs);
-            Map<String, LocalDateTime> currentDates = existingStories.stream()
-                    .filter(s -> s.getOriginUpdatedAt() != null)
-                    .collect(java.util.stream.Collectors.toMap(Story::getSlug, Story::getOriginUpdatedAt));
+            if (response.getBody() != null && "success".equals(response.getBody().getStatus())) {
+                List<OtruyenDto.StoryItem> items = response.getBody().getData().getItems();
+                if (items == null || items.isEmpty()) {
+                    return;
+                }
 
-            for (OtruyenDto.StoryItem item : items) {
-                try {
-                    LocalDateTime apiTime = parseDate(item.getUpdatedAt());
-                    LocalDateTime dbTime = currentDates.get(item.getSlug());
-                    
-                    // CẮT BỎ LUỒNG I/O NẾU DỮ LIỆU ĐÃ MỚI NHẤT
-                    if (dbTime != null && apiTime != null && !apiTime.isAfter(dbTime)) {
-                        log.info("⚡ Tối ưu Filter: Bỏ qua truyện {} vì đã up-to-date", item.getSlug());
-                        continue;
+                // 1. Áp dụng Bộ lọc Tiền Tuyến (Pre-filtering)
+                List<String> slugs = items.stream().map(OtruyenDto.StoryItem::getSlug).toList();
+                List<Story> existingStories = storyRepository.findBySlugIn(slugs);
+                Map<String, LocalDateTime> currentDates = existingStories.stream()
+                        .filter(s -> s.getOriginUpdatedAt() != null)
+                        .collect(Collectors.toMap(Story::getSlug, Story::getOriginUpdatedAt));
+
+                for (OtruyenDto.StoryItem item : items) {
+                    try {
+                        LocalDateTime apiTime = parseDate(item.getUpdatedAt());
+                        LocalDateTime dbTime = currentDates.get(item.getSlug());
+
+                        // CẮT BỎ LUỒNG I/O NẾU DỮ LIỆU ĐÃ MỚI NHẤT
+                        if (dbTime != null && apiTime != null && !apiTime.isAfter(dbTime)) {
+                            log.info("Toi uu Filter: Bo qua truyen {} vi da up-to-date", item.getSlug());
+                            continue;
+                        }
+                        syncStoryDetail(item.getSlug());
+                    } catch (Exception e) {
+                        log.error("Error syncing story slug {}: {}", item.getSlug(), e.getMessage());
                     }
-                    syncStoryDetail(item.getSlug());
-                } catch (Exception e) {
-                    log.error("Error syncing story slug {}: {}", item.getSlug(), e.getMessage());
                 }
             }
+        } catch (Exception e) {
+            log.error("Lỗi khi load danh sách page {}: {}", page, e.getMessage());
         }
         log.info("Finished syncing new stories at page {}", page);
     }
@@ -114,34 +116,40 @@ public class OtruyenSyncService {
                 }
 
                 log.info("Đang quét Catch-Up tại trang {} ...", page);
-                
+
                 // Tối ưu bộ lọc CatchUp
                 List<String> slugs = items.stream().map(OtruyenDto.StoryItem::getSlug).toList();
                 List<Story> existingStories = storyRepository.findBySlugIn(slugs);
                 Map<String, LocalDateTime> currentDates = existingStories.stream()
                         .filter(s -> s.getOriginUpdatedAt() != null)
-                        .collect(java.util.stream.Collectors.toMap(Story::getSlug, Story::getOriginUpdatedAt));
+                        .collect(Collectors.toMap(Story::getSlug, Story::getOriginUpdatedAt));
 
                 for (OtruyenDto.StoryItem chDto : items) {
                     LocalDateTime itemTime = parseDate(chDto.getUpdatedAt());
-                    
+
+                    // Nếu không parse được ngày, vẫn tiếp tục đồng bộ an toàn
+                    if (itemTime == null) {
+                        syncStoryDetail(chDto.getSlug());
+                        continue;
+                    }
+
                     // Nếu thời gian cập nhật của truyện trên API CŨ HƠN mốc truyện mới nhất của chúng ta
                     if (itemTime.isBefore(lastSyncTime)) {
                         log.info("Đã lùi đến mốc thời gian an toàn (truyện cũ mốc {}). Kết thúc Catch-Up Sync tại trang {}.", lastSyncTime, page);
                         isUpToDate = true;
-                        break; 
+                        break;
                     }
-                    
+
                     LocalDateTime dbTime = currentDates.get(chDto.getSlug());
                     if (dbTime != null && !itemTime.isAfter(dbTime)) {
-                        log.info("⚡ Tối ưu Filter CatchUp: Bỏ qua truyện {} vì đã up-to-date", chDto.getSlug());
+                        log.info("Toi uu Filter CatchUp: Bo qua truyen {} vi da up-to-date", chDto.getSlug());
                         continue;
                     }
-                    
-                    // Ngược lại, nếu truyện trên API mới hơn hoặc bằng (do update sát nút), xử lý ngay:
+
+                    // Ngược lại, nếu truyện trên API mới hơn, xử lý ngay:
                     syncStoryDetail(chDto.getSlug());
                 }
-                
+
                 if (!isUpToDate) {
                     page++;
                     // Giới hạn an toàn quét bù tối đa 50 trang
@@ -149,7 +157,7 @@ public class OtruyenSyncService {
                         log.warn("Đã đạt mốc giới hạn quét lùi 50 trang. Ép buộc dừng Catch-Up Sync để bảo vệ tải.");
                         break;
                     }
-                    Thread.sleep(1000); 
+                    Thread.sleep(1000);
                 }
 
             } catch (Exception e) {
@@ -163,14 +171,14 @@ public class OtruyenSyncService {
     /**
      * Đồng bộ hàng loạt cho Admin (Chạy ngầm Async để không Timeout API)
      */
-    @Async
+    @Async("taskExecutor")
     public void syncFullStoriesAsync(int startPage, int endPage) {
         log.info("--- BẮT ĐẦU QUÁ TRÌNH CÀO FULL DATA TỪ TRANG {} ĐẾN {} ---", startPage, endPage);
         for (int i = startPage; i <= endPage; i++) {
             try {
                 syncNewStories(i);
                 log.info("Đã quét xong trang {}. Đang đợi 2 giây để tránh bị chặn IP...", i);
-                Thread.sleep(2000); // Ngủ 2 giây để fake tốc độ crawl của con người, lách luật DDoS
+                Thread.sleep(2000);
             } catch (Exception e) {
                 log.error("Lỗi khi cào dữ liệu tại trang {}: {}", i, e.getMessage());
             }
@@ -179,15 +187,22 @@ public class OtruyenSyncService {
     }
 
     /**
-     * Đồng bộ chi tiết một truyển bằng slug. Khởi tạo Category, Story và Chapter.
+     * Đồng bộ chi tiết một truyện bằng slug.
+     * Lưu ý QUAN TRỌNG: KHÔNG gắn @Transactional ở method này vì bên trong có gọi HTTP ngoài
+     * và Thread.sleep. Việc giữ transaction sẽ làm cạn kiệt Database Connection Pool.
      */
-    @Transactional
     public void syncStoryDetail(String slug) {
         String url = API_STORY_DETAIL + slug;
-        ResponseEntity<OtruyenDto.BaseResponse<OtruyenDto.DetailData>> response = restTemplate.exchange(
-                url, HttpMethod.GET, null,
-                new ParameterizedTypeReference<OtruyenDto.BaseResponse<OtruyenDto.DetailData>>() {}
-        );
+        ResponseEntity<OtruyenDto.BaseResponse<OtruyenDto.DetailData>> response;
+        try {
+            response = restTemplate.exchange(
+                    url, HttpMethod.GET, null,
+                    new ParameterizedTypeReference<OtruyenDto.BaseResponse<OtruyenDto.DetailData>>() {}
+            );
+        } catch (Exception e) {
+            log.error("Lỗi mạng khi tải chi tiết truyện {}: {}", slug, e.getMessage());
+            return;
+        }
 
         if (response.getBody() == null || !"success".equals(response.getBody().getStatus())) {
             return;
@@ -201,9 +216,9 @@ public class OtruyenSyncService {
 
         if (existingOptional.isPresent()) {
             story = existingOptional.get();
-            // Nếu truyện cũ lấy trên DB có ngày cập nhật = API -> bỏ qua không sync lại
-            if (story.getOriginUpdatedAt() != null && apiUpdatedTime != null && 
-                !apiUpdatedTime.isAfter(story.getOriginUpdatedAt())) {
+            // Nếu truyện cũ lấy trên DB có ngày cập nhật >= API -> bỏ qua không sync lại
+            if (story.getOriginUpdatedAt() != null && apiUpdatedTime != null &&
+                    !apiUpdatedTime.isAfter(story.getOriginUpdatedAt())) {
                 log.info("Story {} is already up to date. Skipping.", slug);
                 return;
             }
@@ -211,7 +226,7 @@ public class OtruyenSyncService {
             story = new Story();
         }
 
-        // 1. Lưu Category
+        // 1. Phân giải Category
         Set<Category> storyCategories = new HashSet<>();
         if (apiStory.getCategory() != null) {
             for (OtruyenDto.CategoryItem catDto : apiStory.getCategory()) {
@@ -225,11 +240,11 @@ public class OtruyenSyncService {
             }
         }
 
-        // 2. Lưu thông tin Story
+        // 2. Cập nhật thông tin Story và lưu vào Database trong transaction ngắn
         story.setId(apiStory.getId());
         story.setName(apiStory.getName());
         story.setSlug(apiStory.getSlug());
-        story.setDescription(apiStory.getContent() != null ? apiStory.getContent() : ""); // Mô tả truyện
+        story.setDescription(apiStory.getContent() != null ? apiStory.getContent() : "");
         story.setStatus(apiStory.getStatus());
         story.setThumbUrl(apiStory.getThumbUrl());
         story.setAuthor(apiStory.getAuthor() != null ? String.join(", ", apiStory.getAuthor()) : "Updating");
@@ -237,50 +252,86 @@ public class OtruyenSyncService {
         story.setLastSyncedAt(LocalDateTime.now());
         story.setCategories(storyCategories);
 
-        story = storyRepository.save(story);
+        story = persistStory(story);
 
-        // 3. Upsert Chapters Batch Optimization
+        // 3. Tối ưu N+1 Query: Lấy toàn bộ tên chapter hiện có trong DB qua 1 câu query duy nhất
+        Set<String> existingChapterNames = (story.getId() != null)
+                ? chapterRepository.findChapterNamesByStoryId(story.getId())
+                : Collections.emptySet();
+
+        // 4. Thu thập và tải ảnh cho các Chapter mới (Thực hiện ngoài Transaction)
         if (apiStory.getChapters() != null && !apiStory.getChapters().isEmpty()) {
             List<OtruyenDto.ChapterItem> chapters = apiStory.getChapters().get(0).getServerData();
             List<Chapter> chaptersToSave = new ArrayList<>();
-            
+
             for (OtruyenDto.ChapterItem chDto : chapters) {
                 String chapterName = chDto.getChapterName();
-                Optional<Chapter> chOptional = chapterRepository.findByStoryIdAndChapterName(story.getId(), chapterName);
-                if (chOptional.isEmpty()) {
-                    Chapter newChap = Chapter.builder()
-                            .id(chDto.getChapterApiData().substring(chDto.getChapterApiData().lastIndexOf('/') + 1))
-                            .story(story)
-                            .chapterName(chapterName)
-                            .chapterTitle(chDto.getChapterTitle())
-                            .chapterApiData(chDto.getChapterApiData())
-                            .isContentSynced(false)
-                            .build();
 
-                    // Lấy mảng ảnh JSON cho chapter mới này ngay lập tức
-                    newChap = fetchChapterImages(newChap);
-                    chaptersToSave.add(newChap);
-                    
-                    // Vẫn giữ lại Sleep nhẹ để bảo vệ Otruyen khỏi việc bị ta DDoS lúc cào ảnh
-                    try { Thread.sleep(200); } catch(Exception ignored) {}
+                // Kiểm tra O(1) trong bộ nhớ, loại bỏ hoàn toàn N+1 queries
+                if (existingChapterNames.contains(chapterName)) {
+                    continue;
+                }
+
+                Chapter newChap = Chapter.builder()
+                        .id(chDto.getChapterApiData().substring(chDto.getChapterApiData().lastIndexOf('/') + 1))
+                        .story(story)
+                        .chapterName(chapterName)
+                        .chapterTitle(chDto.getChapterTitle())
+                        .chapterApiData(chDto.getChapterApiData())
+                        .isContentSynced(false)
+                        .build();
+
+                // Tải danh sách ảnh qua API ngoài (Network I/O)
+                newChap = fetchChapterImages(newChap);
+                chaptersToSave.add(newChap);
+
+                // Giãn cách nhẹ để tránh spam Otruyen CDN
+                try {
+                    Thread.sleep(150);
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
                 }
             }
-            // Batched Insert để tăng tốc độ ghi DB gấp hàng chục lần
+
+            // 5. Lưu hàng loạt Chapters trong một Transaction ngắn duy nhất
             if (!chaptersToSave.isEmpty()) {
-                chapterRepository.saveAll(chaptersToSave);
-                log.info("🔥 BATCH MỚI: Đã insert đồng thời {} chapters mới cho truyện {}", chaptersToSave.size(), story.getName());
+                persistChaptersBatch(chaptersToSave);
+                log.info("Batch moi: Da insert dong thoi {} chapters moi cho truyen {}", chaptersToSave.size(), story.getName());
             }
         }
-        
+
         log.info("Successfully synced story: {}", story.getName());
     }
 
+    /**
+     * Giao dịch ngắn: Lưu thông tin Story
+     */
+    @Transactional
+    public Story persistStory(Story story) {
+        return storyRepository.save(story);
+    }
+
+    /**
+     * Giao dịch ngắn: Lưu danh sách Chapter hàng loạt (Batch Insert)
+     */
+    @Transactional
+    public void persistChaptersBatch(List<Chapter> chapters) {
+        chapterRepository.saveAll(chapters);
+    }
+
+    /**
+     * Parse thời gian từ API, trả về null nếu thất bại thay vì LocalDateTime.now()
+     * để tránh làm lệch mốc đồng bộ (Catch-up sync).
+     */
     private LocalDateTime parseDate(String dateStr) {
-        if (dateStr == null || dateStr.isEmpty()) return null;
+        if (dateStr == null || dateStr.isBlank()) {
+            return null;
+        }
         try {
             return LocalDateTime.parse(dateStr, DateTimeFormatter.ISO_DATE_TIME);
         } catch (Exception e) {
-            return LocalDateTime.now();
+            log.warn("Không thể parse ngày ISO_DATE_TIME từ API: '{}', trả về null để bảo toàn mốc so sánh", dateStr);
+            return null;
         }
     }
 
@@ -310,7 +361,7 @@ public class OtruyenSyncService {
                         imgMap.put("url", domain + "/" + path + "/" + img.getImage_file());
                         imagesJsonList.add(imgMap);
                     }
-                    
+
                     chapter.setImagesJson(imagesJsonList);
                     chapter.setIsContentSynced(true);
                 }
