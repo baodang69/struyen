@@ -47,6 +47,8 @@ sequenceDiagram
   - `src/main/java/com/struyen/struyen/controllers/ImageProxyController.java`
 - **Service:**
   - `src/main/java/com/struyen/struyen/services/ImageProxyService.java`
+- **Unit Tests:**
+  - `src/test/java/com/struyen/struyen/services/ImageProxyServiceTest.java`
 - **Config:**
   - `src/main/java/com/struyen/struyen/config/RestTemplateConfig.java`
 
@@ -58,11 +60,14 @@ sequenceDiagram
 - **Method:** `GET`
 - **URL:** `/api/v1/proxy/image`
 - **Query Params:**
-  - `url` (String, bắt buộc): Đường dẫn trực tiếp của ảnh trên CDN gốc
+  - `url` (String, bat buoc): Duong dan truc tiep hoac ten file tuong doi tren Otruyen CDN
+- **Dac tinh bo sung:**
+  - **Auto Normalization:** Tu dong chuyen doi ten file tuong doi (vi du: `truyen-thumb.jpg`) sang URL CDN day du (`https://img.otruyenapi.com/uploads/comics/...`).
+  - **Fallback Placeholder:** Khi CDN upstream loi 404, 502 hoac timeout, tra ve inline SVG placeholder kem HTTP 200 de tranh vo giao dien nguoi dung.
 - **Response Headers:**
-  - `Content-Type: image/jpeg` (hoặc định dạng gốc của ảnh)
-  - `Cache-Control: public, max-age=2592000`
-- **Response Body:** Binary byte stream của file ảnh
+  - `Content-Type: image/jpeg` (hoac `image/svg+xml` khi fallback)
+  - `Cache-Control: public, max-age=2592000` (hoac `max-age=300` khi fallback)
+- **Response Body:** Binary byte stream cua file anh
 
 ---
 
@@ -72,5 +77,12 @@ sequenceDiagram
   ```bash
   curl -I "http://localhost:8080/api/v1/proxy/image?url=https://sv1.otruyencdn.com/v1/api/chapter/xxx/001.jpg"
   ```
-- **Kiểm tra:** Status `200 OK`, header `Content-Type: image/...`, header `Cache-Control: max-age=2592000, public`.
+- **Test fallback khi CDN khong truy cap duoc:**
+  ```bash
+  curl -i "http://localhost:8080/api/v1/proxy/image?url=invalid-file.jpg"
+  ```
+- **Kiem tra Unit Test:**
+  ```bash
+  ./mvnw test -Dtest=ImageProxyServiceTest
+  ```
 
