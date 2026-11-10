@@ -19,3 +19,4 @@ public class ChangePasswordRequest {
     @Size(min = 6, message = "Mat khau moi phai co it nhat 6 ky tu")
     private String newPassword;
 }
+

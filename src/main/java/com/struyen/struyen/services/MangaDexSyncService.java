@@ -363,9 +363,6 @@ public class MangaDexSyncService {
             story.setHasVietnameseTranslation(true);
             storyRepository.save(story);
             log.info("Dong bo thanh cong {} chapters Tieng Viet cho truyen '{}'", viChapters.size(), story.getName());
-            if (!viChapters.isEmpty()) {
-                prefetchAllRemainingChaptersAsync(story.getId());
-            }
             return;
         }
 
@@ -378,9 +375,6 @@ public class MangaDexSyncService {
             story.setHasVietnameseTranslation(false);
             storyRepository.save(story);
             log.info("Luu thanh cong {} chapters Tieng Anh (fallback) cho truyen '{}'", enChapters.size(), story.getName());
-            if (!enChapters.isEmpty()) {
-                prefetchAllRemainingChaptersAsync(story.getId());
-            }
         }
     }
 

@@ -14,3 +14,4 @@ public class UpdateProfileRequest {
     @Size(max = 500, message = "Avatar URL khong duoc vuot qua 500 ky tu")
     private String avatarUrl;
 }
+

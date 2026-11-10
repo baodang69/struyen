@@ -93,12 +93,6 @@ public class PublicStoryService {
                 .map(ChapterShortDto::fromEntity)
                 .toList();
 
-        // Kích hoạt tiến trình pre-fetch toàn bộ chương còn lại dưới nền
-        long unsyncedCount = chapterRepository.countByStoryIdAndIsContentSyncedFalse(story.getId());
-        if (unsyncedCount > 0) {
-            mangaDexSyncService.prefetchAllRemainingChaptersAsync(story.getId());
-        }
-
         return StoryDetailDto.fromEntity(story, chapterDtos);
     }
 

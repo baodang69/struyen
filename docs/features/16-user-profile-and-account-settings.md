@@ -101,3 +101,4 @@ Tài liệu chi tiết tính năng Quản lý Hồ sơ Cá nhân, Đổi mật k
    - Nhấn Tủ truyện -> Điều hướng tới `/profile?tab=subscriptions`, đóng dropdown.
    - Nhấn Lịch sử đọc -> Điều hướng tới `/profile?tab=history`, đóng dropdown.
    - Nhấn Cài đặt tài khoản -> Điều hướng tới `/profile?tab=settings`, đóng dropdown.
+
