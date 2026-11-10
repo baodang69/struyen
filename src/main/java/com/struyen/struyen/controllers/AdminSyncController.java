@@ -68,6 +68,26 @@ public class AdminSyncController {
         return ResponseEntity.ok(String.format("Tien trinh dong bo %d truyen Tieng Viet tu MangaDex (offset=%d) da duoc khoi chay ngam.", limit, offset));
     }
 
+    @PostMapping("/mangadex/latest")
+    public ResponseEntity<String> triggerMangaDexLatestSync(
+            @RequestHeader(value = "X-Admin-Key", required = false) String providedKey,
+            @RequestParam(defaultValue = "30") int limit) {
+
+        if (providedKey == null || !providedKey.equals(adminSecretKey)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Unauthorized: Header 'X-Admin-Key' khong hop le hoac bi thieu.");
+        }
+
+        if (limit < 1 || limit > 100) {
+            return ResponseEntity.badRequest()
+                    .body("Tham so khong hop le: limit tu 1 den 100.");
+        }
+
+        mangaDexSyncService.syncLatestVietnameseMangaAsync(limit);
+
+        return ResponseEntity.ok(String.format("Tien trinh dong bo truyen tu %d chapter Tieng Viet moi nhat tren MangaDex da duoc khoi chay ngam.", limit));
+    }
+
     @PostMapping("/mangadex/manga/{mangaId}")
     public ResponseEntity<String> triggerMangaDexSingleMangaSync(
             @RequestHeader(value = "X-Admin-Key", required = false) String providedKey,

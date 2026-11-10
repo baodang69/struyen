@@ -21,6 +21,14 @@ public class MangaDexDto {
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class MangaSingleResponse {
+        private String result;
+        private String response;
+        private MangaData data;
+    }
+
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class MangaData {
         private String id;
         private String type;

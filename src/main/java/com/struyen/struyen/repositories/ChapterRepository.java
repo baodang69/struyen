@@ -31,6 +31,11 @@ public interface ChapterRepository extends JpaRepository<Chapter, String> {
     java.util.List<Chapter> findByStoryIdAndIsContentSyncedFalseOrderByCreatedAtAsc(String storyId);
 
     /**
+     * Đếm tổng số lượng chương của một truyện.
+     */
+    long countByStoryId(String storyId);
+
+    /**
      * Đếm số lượng chương chưa đồng bộ nội dung ảnh của một truyện.
      */
     long countByStoryIdAndIsContentSyncedFalse(String storyId);

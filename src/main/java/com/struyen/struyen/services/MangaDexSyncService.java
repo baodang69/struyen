@@ -160,21 +160,76 @@ public class MangaDexSyncService {
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
         try {
-            ResponseEntity<MangaDexDto.MangaListResponse> response = restTemplate.exchange(
+            ResponseEntity<MangaDexDto.MangaSingleResponse> response = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
                     entity,
-                    MangaDexDto.MangaListResponse.class
+                    MangaDexDto.MangaSingleResponse.class
             );
 
-            if (response.getBody() != null && response.getBody().getData() != null && !response.getBody().getData().isEmpty()) {
-                syncSingleManga(response.getBody().getData().get(0));
-                return true;
+            if (response.getBody() != null && response.getBody().getData() != null) {
+                Story story = syncSingleManga(response.getBody().getData());
+                return story != null;
             }
         } catch (Exception e) {
             log.error("Loi khi dong bo manga id {}: {}", mangaId, e.getMessage());
         }
         return false;
+    }
+
+    /**
+     * Dong bo truyen theo cac chapter Tieng Viet moi nhat vua duoc dang tai tren MangaDex.
+     * Dam bao 100% truyen deu co chapter Tieng Viet doc duoc ngay lap tuc.
+     */
+    public int syncLatestVietnameseManga(int limit) {
+        log.info("Bat dau dong bo MangaDex theo chapter Tieng Viet moi cap nhat, limit={}", limit);
+        String url = String.format("%s/chapter?translatedLanguage[]=vi&order[readableAt]=desc&limit=%d&includes[]=manga", API_BASE, limit);
+
+        HttpHeaders headers = createMangaDexHeaders();
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        Set<String> uniqueMangaIds = new LinkedHashSet<>();
+        try {
+            throttle();
+            ResponseEntity<MangaDexDto.ChapterListResponse> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    MangaDexDto.ChapterListResponse.class
+            );
+
+            if (response.getBody() != null && response.getBody().getData() != null) {
+                for (MangaDexDto.ChapterData ch : response.getBody().getData()) {
+                    if (ch.getRelationships() != null) {
+                        for (MangaDexDto.Relationship rel : ch.getRelationships()) {
+                            if ("manga".equalsIgnoreCase(rel.getType()) && rel.getId() != null) {
+                                uniqueMangaIds.add(rel.getId());
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Loi khi lay danh sach chapter Tieng Viet moi nhat: {}", e.getMessage());
+        }
+
+        int successCount = 0;
+        for (String mangaId : uniqueMangaIds) {
+            try {
+                throttle();
+                boolean ok = syncMangaById(mangaId);
+                if (ok) successCount++;
+            } catch (Exception e) {
+                log.warn("Loi khi dong bo manga tu chapter id {}: {}", mangaId, e.getMessage());
+            }
+        }
+        log.info("Hoan tat dong bo MangaDex theo chapter moi: Da xu ly {}/{} truyen.", successCount, uniqueMangaIds.size());
+        return successCount;
+    }
+
+    @Async("taskExecutor")
+    public void syncLatestVietnameseMangaAsync(int limit) {
+        syncLatestVietnameseManga(limit);
     }
 
     /**
@@ -234,15 +289,28 @@ public class MangaDexSyncService {
         // Dong bo danh sach Chapter Tieng Viet kem prefetch anh 5 chuong dau tien
         syncChaptersForManga(savedStory, mangaData.getId());
 
-        log.info("Dong bo thanh cong truyen MangaDex: '{}' (slug: {})", savedStory.getName(), savedStory.getSlug());
+        long chapterCount = chapterRepository.countByStoryId(savedStory.getId());
+        if (chapterCount == 0) {
+            storyRepository.delete(savedStory);
+            log.warn("Bo qua va xoa truyen '{}' vi MangaDex khong co bat ky chapter Tieng Viet nao tren server.", savedStory.getName());
+            return null;
+        }
+
+        log.info("Dong bo thanh cong truyen MangaDex: '{}' (slug: {}, {} chapters)", savedStory.getName(), savedStory.getSlug(), chapterCount);
         return savedStory;
     }
 
     @PostConstruct
-    public void cleanExistingStoryDescriptions() {
+    public void cleanupExistingData() {
         try {
             List<Story> stories = storyRepository.findAll();
             for (Story s : stories) {
+                long chCount = chapterRepository.countByStoryId(s.getId());
+                if (chCount == 0) {
+                    storyRepository.delete(s);
+                    log.info("Da don dep xoa truyen 0 chapter: {} (id: {})", s.getName(), s.getId());
+                    continue;
+                }
                 if (s.getDescription() != null && (s.getDescription().contains("%2") || s.getDescription().matches(".*[a-f0-9]{32}.*"))) {
                     s.setDescription(cleanDescription(s.getDescription()));
                     storyRepository.save(s);
@@ -250,7 +318,7 @@ public class MangaDexSyncService {
                 }
             }
         } catch (Exception e) {
-            log.warn("Khong the lam sach mo ta cu: {}", e.getMessage());
+            log.warn("Khong the don dep du lieu cu: {}", e.getMessage());
         }
     }
 
