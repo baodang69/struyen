@@ -7,6 +7,7 @@ import com.struyen.struyen.entities.Story;
 import com.struyen.struyen.repositories.CategoryRepository;
 import com.struyen.struyen.repositories.ChapterRepository;
 import com.struyen.struyen.repositories.StoryRepository;
+import com.struyen.struyen.utils.ChapterComparator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -86,7 +87,8 @@ public class PublicStoryService {
             story.setDescription(MangaDexSyncService.cleanDescription(story.getDescription()));
         }
 
-        List<Chapter> chapters = chapterRepository.findByStoryIdOrderByCreatedAtAsc(story.getId());
+        List<Chapter> chapters = new ArrayList<>(chapterRepository.findByStoryIdOrderByCreatedAtAsc(story.getId()));
+        chapters.sort(ChapterComparator.INSTANCE);
         List<ChapterShortDto> chapterDtos = chapters.stream()
                 .map(ChapterShortDto::fromEntity)
                 .toList();
@@ -115,8 +117,9 @@ public class PublicStoryService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Truyện chứa chương này đã bị ẩn hoặc không tồn tại.");
         }
 
-        // Tính toán chương trước và chương sau dựa trên danh sách chương cùng truyện
-        List<Chapter> storyChapters = chapterRepository.findByStoryIdOrderByCreatedAtAsc(story.getId());
+        // Tính toán chương trước và chương sau dựa trên danh sách chương cùng truyện (đã sắp xếp tự nhiên)
+        List<Chapter> storyChapters = new ArrayList<>(chapterRepository.findByStoryIdOrderByCreatedAtAsc(story.getId()));
+        storyChapters.sort(ChapterComparator.INSTANCE);
         String prevChapterId = null;
         String nextChapterId = null;
 

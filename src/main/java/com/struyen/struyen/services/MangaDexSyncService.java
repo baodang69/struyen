@@ -310,12 +310,22 @@ public class MangaDexSyncService {
                 List<Chapter> chapters = chapterRepository.findByStoryIdOrderByCreatedAtAsc(s.getId());
                 for (Chapter ch : chapters) {
                     if (ch.getId().startsWith("md-ch-")) {
-                        if (ch.getImagesJson() == null || ch.getImagesJson().isEmpty()) {
-                            ch = fetchChapterPages(ch);
-                        }
-                        if (ch.getImagesJson() == null || ch.getImagesJson().isEmpty()) {
+                        String title = ch.getChapterTitle();
+                        boolean isExternal = title != null && (
+                                title.contains("[Webnovel]") ||
+                                title.contains("[K MANGA]") ||
+                                title.contains("[MangaPlus]") ||
+                                title.contains("[Bilibili]") ||
+                                title.contains("[TappyToon]") ||
+                                title.contains("[Pocket Comics]") ||
+                                title.contains("[Lezhin]") ||
+                                title.contains("[Tapas]") ||
+                                title.contains("[LINE Webtoon]")
+                        );
+                        boolean isSyncedEmpty = Boolean.TRUE.equals(ch.getIsContentSynced()) && (ch.getImagesJson() == null || ch.getImagesJson().isEmpty());
+                        if (isExternal || isSyncedEmpty) {
                             chapterRepository.delete(ch);
-                            log.info("Da xoa chapter khong co anh: {} (id: {})", ch.getChapterName(), ch.getId());
+                            log.info("Da xoa chapter khong hop le hoac 0 anh: {} (id: {})", ch.getChapterName(), ch.getId());
                         }
                     }
                 }

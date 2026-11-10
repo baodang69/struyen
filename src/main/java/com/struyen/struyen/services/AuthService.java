@@ -1,8 +1,10 @@
 package com.struyen.struyen.services;
 
 import com.struyen.struyen.dtos.AuthResponse;
+import com.struyen.struyen.dtos.ChangePasswordRequest;
 import com.struyen.struyen.dtos.LoginRequest;
 import com.struyen.struyen.dtos.RegisterRequest;
+import com.struyen.struyen.dtos.UpdateProfileRequest;
 import com.struyen.struyen.dtos.UserDto;
 import com.struyen.struyen.entities.Role;
 import com.struyen.struyen.entities.User;
@@ -116,6 +118,44 @@ public class AuthService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Khong tim thay thong tin tai khoan."));
 
         return UserDto.fromEntity(user);
+    }
+
+    /**
+     * Cap nhat thong tin ca nhan (avatar)
+     */
+    @Transactional
+    public UserDto updateProfile(String username, UpdateProfileRequest request) {
+        User user = userRepository.findWithRolesByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Khong tim thay thong tin tai khoan."));
+
+        if (request.getAvatarUrl() != null) {
+            user.setAvatarUrl(request.getAvatarUrl().trim());
+        }
+
+        user = userRepository.save(user);
+        log.info("User {} da cap nhat ho so ca nhan", username);
+        return UserDto.fromEntity(user);
+    }
+
+    /**
+     * Doi mat khau nguoi dung
+     */
+    @Transactional
+    public void changePassword(String username, ChangePasswordRequest request) {
+        User user = userRepository.findWithRolesByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Khong tim thay thong tin tai khoan."));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mat khau hien tai khong dung.");
+        }
+
+        if (request.getNewPassword().equals(request.getCurrentPassword())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mat khau moi khong duoc trung voi mat khau hien tai.");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        log.info("User {} da doi mat khau thanh cong", username);
     }
 }
 
