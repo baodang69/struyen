@@ -22,6 +22,7 @@ Bảng danh sách tổng hợp tất cả các tính năng (features) đã hoàn
 | F-14 | `ADMIN-MANAGEMENT` | Bảng điều khiển quản trị: Kiểm duyệt truyện, Khóa User & Notice | Hoàn thành | 2026-11-09 | [14-admin-management-dashboard.md](./14-admin-management-dashboard.md) |
 | F-15 | `SYNC-MANGADEX` | Tích hợp nguồn truyện MangaDex API (Multi-Source Provider) & On-demand Loading | Hoàn thành | 2026-11-09 | [15-mangadex-multi-source-sync.md](./15-mangadex-multi-source-sync.md) |
 | F-16 | `USER-PROFILE-SETTINGS` | Quản lý Hồ sơ Cá nhân, Cập nhật Avatar & Đổi Mật khẩu | Hoàn thành | 2026-11-10 | [16-user-profile-and-account-settings.md](./16-user-profile-and-account-settings.md) |
+| F-17 | `SERVER-SIDE-PAGINATION` | Phân trang, Lọc thể loại, Sắp xếp & Tìm kiếm động phía Server-side | Hoàn thành | 2026-11-10 | [17-server-side-pagination-and-filtering.md](./17-server-side-pagination-and-filtering.md) |
 | F-13 | `REDIS-CACHE` | Tối ưu hóa Cache Redis cho trang chủ, chi tiết truyện & danh mục | Kế hoạch (Tiếp theo) | - | [13-redis-caching-optimization.md](./13-redis-caching-optimization.md) |
 | F-12 | `NOTIFICATION-SYSTEM` | Hệ thống Thông báo tự động kèm Message Broker phân tán | Kế hoạch | - | [12-notification-system.md](./12-notification-system.md) |
 | F-08 | `ELASTICSEARCH-SEARCH` | Tìm kiếm Elasticsearch & Auto-suggestion tối thiểu 5 truyện | Kế hoạch | - | [08-elasticsearch-search-and-suggestion.md](./08-elasticsearch-search-and-suggestion.md) |
