@@ -105,6 +105,7 @@ class MangaDexSyncServiceTest {
         chAttr.setChapter("1");
         chAttr.setTitle("Khoi dau");
         chAttr.setPublishAt("2026-01-01T00:00:00");
+        chAttr.setPages(10);
         chData.setAttributes(chAttr);
 
         MangaDexDto.ChapterListResponse feedResponse = new MangaDexDto.ChapterListResponse();
@@ -154,6 +155,7 @@ class MangaDexSyncServiceTest {
         enChAttr.setChapter("1");
         enChAttr.setTitle("Beginning");
         enChAttr.setPublishAt("2026-01-01T00:00:00");
+        enChAttr.setPages(10);
         enChData.setAttributes(enChAttr);
 
         MangaDexDto.ChapterListResponse enFeedResponse = new MangaDexDto.ChapterListResponse();
@@ -189,6 +191,42 @@ class MangaDexSyncServiceTest {
         Story syncedStory = mangaDexSyncService.syncSingleManga(mangaData);
 
         assertNull(syncedStory);
+        verify(storyRepository, atLeastOnce()).delete(any(Story.class));
+    }
+
+    @Test
+    void shouldIgnoreExternalAndEmptyChapters() {
+        MangaDexDto.MangaData mangaData = createMockMangaData();
+
+        when(storyRepository.findById("md-manga-uuid-123")).thenReturn(Optional.empty());
+        when(storyRepository.findBySlug("cau-chuyen-anh-hung")).thenReturn(Optional.empty());
+        when(categoryRepository.findBySlug("action")).thenReturn(Optional.of(Category.builder().id("cat-action").name("Action").slug("action").build()));
+        when(storyRepository.save(any(Story.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // External chapter (e.g. Webnovel or K MANGA)
+        MangaDexDto.ChapterData extCh = new MangaDexDto.ChapterData();
+        extCh.setId("ext-chapter-1");
+        MangaDexDto.ChapterAttributes extAttr = new MangaDexDto.ChapterAttributes();
+        extAttr.setChapter("1");
+        extAttr.setTitle("External Chapter");
+        extAttr.setExternalUrl("https://webnovel.com/comic/123");
+        extAttr.setPages(0);
+        extCh.setAttributes(extAttr);
+
+        MangaDexDto.ChapterListResponse feedResponse = new MangaDexDto.ChapterListResponse();
+        feedResponse.setTotal(1);
+        feedResponse.setData(List.of(extCh));
+
+        when(restTemplate.exchange(contains("translatedLanguage[]=vi"), eq(HttpMethod.GET), any(), eq(MangaDexDto.ChapterListResponse.class)))
+                .thenReturn(ResponseEntity.ok(feedResponse));
+        when(restTemplate.exchange(contains("translatedLanguage[]=en"), eq(HttpMethod.GET), any(), eq(MangaDexDto.ChapterListResponse.class)))
+                .thenReturn(ResponseEntity.ok(feedResponse));
+
+        Story syncedStory = mangaDexSyncService.syncSingleManga(mangaData);
+
+        // All chapters were external, so the story has 0 valid chapters and is discarded/deleted
+        assertNull(syncedStory);
+        verify(chapterRepository, never()).saveAll(anyList());
         verify(storyRepository, atLeastOnce()).delete(any(Story.class));
     }
 

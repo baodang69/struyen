@@ -14,7 +14,8 @@
 - **Pham vi:**
   - Tich hop REST API MangaDex (`https://api.mangadex.org`) de crawl metadata truyen co ban dich Tieng Viet.
   - Co che Fallback Chuong Tieng Anh (English Chapter Fallback): Thu thap chuong Tieng Viet truoc, neu truyen khong co chuong Tieng Viet nao se tu dong fallback sang thu thap chuong Tieng Anh va gan co `hasVietnameseTranslation = false`. Neu ca Tieng Anh cung khong co chuong, tu dong huy bo luu truyen de tranh truyen rong (0 chapter).
-  - Tu dong quet don dep (cleanup) cac truyen cu khong co chuong luc khoi dong server.
+  - Loai bo cac chuong Link ngoai (External Chapters: Webnovel, K Manga, MangaPlus...): Tham so `includeExternalUrl=0` va bo loc `externalUrl == null && pages > 0` dam bao 100% chapter duoc luu co anh tren CDN MangaDex, khong bao gio luu chapter 0 trang.
+  - Tu dong quet don dep (cleanup) cac truyen va chuong link ngoai khong co anh luc khoi dong server.
   - Tu dong dich mo ta Tieng Anh sang Tieng Viet thong qua Google Translate API.
   - Viet hoa toan bo danh muc/the loai MangaDex (`VIETNAMESE_TAG_MAP`).
   - Pre-fetch tu dong 5 chuong dau tien vao PostgreSQL de nguoi doc mo truyen khong phai cho doi At-Home server.

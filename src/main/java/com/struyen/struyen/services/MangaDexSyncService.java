@@ -306,10 +306,24 @@ public class MangaDexSyncService {
         try {
             List<Story> stories = storyRepository.findAll();
             for (Story s : stories) {
+                // Xoa cac chapter external (Webnovel, K Manga...) hoac da sync nhung 0 anh
+                List<Chapter> chapters = chapterRepository.findByStoryIdOrderByCreatedAtAsc(s.getId());
+                for (Chapter ch : chapters) {
+                    if (ch.getId().startsWith("md-ch-")) {
+                        if (ch.getImagesJson() == null || ch.getImagesJson().isEmpty()) {
+                            ch = fetchChapterPages(ch);
+                        }
+                        if (ch.getImagesJson() == null || ch.getImagesJson().isEmpty()) {
+                            chapterRepository.delete(ch);
+                            log.info("Da xoa chapter khong co anh: {} (id: {})", ch.getChapterName(), ch.getId());
+                        }
+                    }
+                }
+
                 long chCount = chapterRepository.countByStoryId(s.getId());
                 if (chCount == 0) {
                     storyRepository.delete(s);
-                    log.info("Da don dep xoa truyen 0 chapter: {} (id: {})", s.getName(), s.getId());
+                    log.info("Da don dep xoa truyen 0 chapter hop le: {} (id: {})", s.getName(), s.getId());
                     continue;
                 }
                 if (s.getDescription() != null && (s.getDescription().contains("%2") || s.getDescription().matches(".*[a-f0-9]{32}.*"))) {
@@ -369,7 +383,7 @@ public class MangaDexSyncService {
         try {
             while (offset < total) {
                 String url = String.format(
-                        "%s/manga/%s/feed?translatedLanguage[]=%s&order[chapter]=asc&limit=%d&offset=%d&includes[]=scanlation_group",
+                        "%s/manga/%s/feed?translatedLanguage[]=%s&includeExternalUrl=0&order[chapter]=asc&limit=%d&offset=%d&includes[]=scanlation_group",
                         API_BASE, mangaDexId, lang, limit, offset
                 );
 
@@ -399,6 +413,14 @@ public class MangaDexSyncService {
                 List<Chapter> chaptersToSave = new ArrayList<>();
                 for (MangaDexDto.ChapterData chData : chapterList) {
                     if (chData.getAttributes() == null) continue;
+
+                    // Bo qua tat ca cac chapter link ngoai hoac khong co anh tren MangaDex (pages <= 0)
+                    if (chData.getAttributes().getExternalUrl() != null && !chData.getAttributes().getExternalUrl().isBlank()) {
+                        continue;
+                    }
+                    if (chData.getAttributes().getPages() != null && chData.getAttributes().getPages() <= 0) {
+                        continue;
+                    }
 
                     String rawChapterName = chData.getAttributes().getChapter();
                     String chapterName = (rawChapterName != null && !rawChapterName.isBlank()) ? rawChapterName : "1";
@@ -504,6 +526,10 @@ public class MangaDexSyncService {
                     }
 
                     chapter.setImagesJson(imagesJsonList);
+                    chapter.setIsContentSynced(true);
+                    return chapterRepository.save(chapter);
+                } else {
+                    log.warn("MangaDex At-Home tra ve 0 trang anh cho chapter id: {}", chapter.getId());
                     chapter.setIsContentSynced(true);
                     return chapterRepository.save(chapter);
                 }
