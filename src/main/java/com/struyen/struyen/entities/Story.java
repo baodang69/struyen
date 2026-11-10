@@ -71,6 +71,7 @@ public class Story {
         joinColumns = @JoinColumn(name = "story_id"),
         inverseJoinColumns = @JoinColumn(name = "category_id")
     )
+    @org.hibernate.annotations.BatchSize(size = 50)
     @Builder.Default
     private Set<Category> categories = new HashSet<>();
     

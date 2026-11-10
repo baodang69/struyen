@@ -18,9 +18,11 @@ public class PublicStoryController {
     @GetMapping
     public ResponseEntity<PageResponse<StoryListDto>> getStories(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String category) {
-        return ResponseEntity.ok(publicStoryService.getStories(page, size, category));
+            @RequestParam(defaultValue = "12") int size,
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "newest") String sort,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(publicStoryService.getStories(page, size, category, sort, q));
     }
 
     @GetMapping("/{slug}")

@@ -8,12 +8,16 @@ import com.struyen.struyen.repositories.CategoryRepository;
 import com.struyen.struyen.repositories.ChapterRepository;
 import com.struyen.struyen.repositories.StoryRepository;
 import com.struyen.struyen.utils.ChapterComparator;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,39 +40,111 @@ public class PublicStoryService {
     private final MangaDexSyncService mangaDexSyncService;
 
     /**
-     * Lay danh sach truyen co phan trang va loc theo the loai.
+     * Lay danh sach truyen co phan trang, tim kiem va loc theo the loai.
      * Ho tro loc linh hoat theo slug tieng Anh, ten Tieng Viet hoac slug Tieng Viet khong dau.
      */
     @Transactional(readOnly = true)
     public PageResponse<StoryListDto> getStories(int page, int size, String category) {
-        int springPage = page > 0 ? page - 1 : 0;
-        Pageable pageable = PageRequest.of(springPage, size, Sort.by(Sort.Direction.DESC, "updatedAt"));
+        return getStories(page, size, category, "newest", null);
+    }
 
-        Page<Story> storyPage;
-        if (category != null && !category.isBlank() && !category.equalsIgnoreCase("Tất cả") && !category.equalsIgnoreCase("all")) {
-            String trimmed = category.trim();
-            String slugifiedInput = MangaDexSyncService.toSlug(trimmed);
-
-            // Tim Category trong he thong khop theo: name (case-insensitive), slug (case-insensitive), hoac slugified name
-            List<Category> allCategories = categoryRepository.findAll();
-            Category matchedCategory = allCategories.stream()
-                    .filter(c -> c.getName().equalsIgnoreCase(trimmed)
-                            || c.getSlug().equalsIgnoreCase(trimmed)
-                            || MangaDexSyncService.toSlug(c.getName()).equalsIgnoreCase(slugifiedInput)
-                            || c.getSlug().equalsIgnoreCase(slugifiedInput)
-                            || c.getId().equalsIgnoreCase(trimmed))
-                    .findFirst()
-                    .orElse(null);
-
-            if (matchedCategory != null) {
-                storyPage = storyRepository.findByIsActiveTrueAndCategoriesId(matchedCategory.getId(), pageable);
-            } else {
-                storyPage = storyRepository.findByIsActiveTrueAndCategory(trimmed, pageable);
-            }
-        } else {
-            storyPage = storyRepository.findByIsActiveTrue(pageable);
+    /**
+     * Lay danh sach truyen co phan trang, sap xep, tim kiem tu khoa va loc theo the loai tren Server-side.
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<StoryListDto> getStories(int page, int size, String category, String sort, String q) {
+        Sort sortObj;
+        String sortType = sort != null ? sort.trim().toLowerCase() : "newest";
+        switch (sortType) {
+            case "popular":
+                sortObj = Sort.by(Sort.Direction.DESC, "viewCount").and(Sort.by(Sort.Direction.DESC, "updatedAt"));
+                break;
+            case "a-z":
+                sortObj = Sort.by(Sort.Direction.ASC, "name");
+                break;
+            case "rating":
+                sortObj = Sort.by(Sort.Direction.DESC, "viewCount");
+                break;
+            case "newest":
+            default:
+                sortObj = Sort.by(Sort.Direction.DESC, "updatedAt");
+                break;
         }
 
+        int springPage = page > 0 ? page - 1 : 0;
+        int pageSize = size > 0 ? size : 12;
+        Pageable pageable = PageRequest.of(springPage, pageSize, sortObj);
+
+        final String cleanCategory = (category != null && !category.isBlank() && !category.equalsIgnoreCase("Tất cả") && !category.equalsIgnoreCase("all"))
+                ? category.trim()
+                : null;
+        final String cleanKeyword = (q != null && !q.isBlank()) ? q.trim() : null;
+
+        // Tim kiem thong tin Category phu hop neu co loc
+        String targetCategoryId = null;
+        String targetCategorySlug = null;
+        String targetCategoryName = null;
+
+        if (cleanCategory != null) {
+            String slugifiedInput = MangaDexSyncService.toSlug(cleanCategory);
+            List<Category> allCategories = categoryRepository.findAll();
+            Category matched = allCategories.stream()
+                    .filter(c -> c.getName().equalsIgnoreCase(cleanCategory)
+                            || c.getSlug().equalsIgnoreCase(cleanCategory)
+                            || MangaDexSyncService.toSlug(c.getName()).equalsIgnoreCase(slugifiedInput)
+                            || c.getSlug().equalsIgnoreCase(slugifiedInput)
+                            || c.getId().equalsIgnoreCase(cleanCategory))
+                    .findFirst()
+                    .orElse(null);
+            if (matched != null) {
+                targetCategoryId = matched.getId();
+                targetCategorySlug = matched.getSlug();
+                targetCategoryName = matched.getName();
+            } else {
+                targetCategorySlug = cleanCategory;
+            }
+        }
+
+        final String finalCategoryId = targetCategoryId;
+        final String finalCategorySlug = targetCategorySlug;
+        final String finalCategoryName = targetCategoryName;
+
+        Specification<Story> spec = (root, query, cb) -> {
+            query.distinct(true);
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.isTrue(root.get("isActive")));
+
+            if (cleanCategory != null) {
+                Join<Story, Category> catJoin = root.join("categories", JoinType.INNER);
+                List<Predicate> catPreds = new ArrayList<>();
+                if (finalCategoryId != null) {
+                    catPreds.add(cb.equal(catJoin.get("id"), finalCategoryId));
+                }
+                if (finalCategorySlug != null) {
+                    catPreds.add(cb.equal(cb.lower(catJoin.get("slug")), finalCategorySlug.toLowerCase()));
+                }
+                if (finalCategoryName != null) {
+                    catPreds.add(cb.equal(cb.lower(catJoin.get("name")), finalCategoryName.toLowerCase()));
+                }
+                if (catPreds.isEmpty()) {
+                    catPreds.add(cb.equal(cb.lower(catJoin.get("slug")), cleanCategory.toLowerCase()));
+                    catPreds.add(cb.equal(cb.lower(catJoin.get("name")), cleanCategory.toLowerCase()));
+                }
+                predicates.add(cb.or(catPreds.toArray(new Predicate[0])));
+            }
+
+            if (cleanKeyword != null) {
+                String pattern = "%" + cleanKeyword.toLowerCase() + "%";
+                Predicate matchName = cb.like(cb.lower(root.get("name")), pattern);
+                Predicate matchSlug = cb.like(cb.lower(root.get("slug")), pattern);
+                Predicate matchAuthor = cb.like(cb.lower(root.get("author")), pattern);
+                predicates.add(cb.or(matchName, matchSlug, matchAuthor));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<Story> storyPage = storyRepository.findAll(spec, pageable);
         Page<StoryListDto> dtoPage = storyPage.map(StoryListDto::fromEntity);
         return PageResponse.of(dtoPage);
     }
