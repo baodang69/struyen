@@ -47,6 +47,12 @@ public class Story {
     
     @Builder.Default
     private Boolean isFeatured = false;
+
+    @Builder.Default
+    private String language = "vi";
+
+    @Builder.Default
+    private Boolean hasVietnameseTranslation = true;
     
     private LocalDateTime originUpdatedAt;
     

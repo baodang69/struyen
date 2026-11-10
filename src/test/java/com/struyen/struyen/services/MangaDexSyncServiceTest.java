@@ -90,6 +90,109 @@ class MangaDexSyncServiceTest {
 
     @Test
     void shouldSyncSingleMangaAndMapFieldsCorrectly() {
+        MangaDexDto.MangaData mangaData = createMockMangaData();
+
+        when(storyRepository.findById("md-manga-uuid-123")).thenReturn(Optional.empty());
+        when(storyRepository.findBySlug("cau-chuyen-anh-hung")).thenReturn(Optional.empty());
+        when(categoryRepository.findBySlug("action")).thenReturn(Optional.of(Category.builder().id("cat-action").name("Action").slug("action").build()));
+        when(storyRepository.save(any(Story.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(chapterRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(chapterRepository.countByStoryId("md-manga-uuid-123")).thenReturn(1L);
+
+        MangaDexDto.ChapterData chData = new MangaDexDto.ChapterData();
+        chData.setId("chapter-uuid-1");
+        MangaDexDto.ChapterAttributes chAttr = new MangaDexDto.ChapterAttributes();
+        chAttr.setChapter("1");
+        chAttr.setTitle("Khoi dau");
+        chAttr.setPublishAt("2026-01-01T00:00:00");
+        chData.setAttributes(chAttr);
+
+        MangaDexDto.ChapterListResponse feedResponse = new MangaDexDto.ChapterListResponse();
+        feedResponse.setTotal(1);
+        feedResponse.setData(List.of(chData));
+
+        when(restTemplate.exchange(contains("translatedLanguage[]=vi"), eq(HttpMethod.GET), any(), eq(MangaDexDto.ChapterListResponse.class)))
+                .thenReturn(ResponseEntity.ok(feedResponse));
+
+        Story syncedStory = mangaDexSyncService.syncSingleManga(mangaData);
+
+        assertNotNull(syncedStory);
+        assertEquals("md-manga-uuid-123", syncedStory.getId());
+        assertEquals("Cau Chuyen Anh Hung", syncedStory.getName());
+        assertEquals("cau-chuyen-anh-hung", syncedStory.getSlug());
+        assertEquals("Mo ta tieng Viet", syncedStory.getDescription());
+        assertEquals("Oda Eiichiro", syncedStory.getAuthor());
+        assertEquals("https://uploads.mangadex.org/covers/manga-uuid-123/cover.jpg", syncedStory.getThumbUrl());
+        assertEquals("https://uploads.mangadex.org", syncedStory.getCdnDomain());
+        assertEquals("vi", syncedStory.getLanguage());
+        assertTrue(syncedStory.getHasVietnameseTranslation());
+        assertEquals(1, syncedStory.getCategories().size());
+    }
+
+    @Test
+    void shouldFallbackToEnglishWhenNoVietnameseChapters() {
+        MangaDexDto.MangaData mangaData = createMockMangaData();
+
+        when(storyRepository.findById("md-manga-uuid-123")).thenReturn(Optional.empty());
+        when(storyRepository.findBySlug("cau-chuyen-anh-hung")).thenReturn(Optional.empty());
+        when(categoryRepository.findBySlug("action")).thenReturn(Optional.of(Category.builder().id("cat-action").name("Action").slug("action").build()));
+        when(storyRepository.save(any(Story.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(chapterRepository.saveAll(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(chapterRepository.countByStoryId("md-manga-uuid-123")).thenReturn(1L);
+
+        // VI feed returns empty list
+        MangaDexDto.ChapterListResponse emptyViFeed = new MangaDexDto.ChapterListResponse();
+        emptyViFeed.setTotal(0);
+        emptyViFeed.setData(Collections.emptyList());
+        when(restTemplate.exchange(contains("translatedLanguage[]=vi"), eq(HttpMethod.GET), any(), eq(MangaDexDto.ChapterListResponse.class)))
+                .thenReturn(ResponseEntity.ok(emptyViFeed));
+
+        // EN feed returns 1 chapter
+        MangaDexDto.ChapterData enChData = new MangaDexDto.ChapterData();
+        enChData.setId("en-chapter-uuid-1");
+        MangaDexDto.ChapterAttributes enChAttr = new MangaDexDto.ChapterAttributes();
+        enChAttr.setChapter("1");
+        enChAttr.setTitle("Beginning");
+        enChAttr.setPublishAt("2026-01-01T00:00:00");
+        enChData.setAttributes(enChAttr);
+
+        MangaDexDto.ChapterListResponse enFeedResponse = new MangaDexDto.ChapterListResponse();
+        enFeedResponse.setTotal(1);
+        enFeedResponse.setData(List.of(enChData));
+        when(restTemplate.exchange(contains("translatedLanguage[]=en"), eq(HttpMethod.GET), any(), eq(MangaDexDto.ChapterListResponse.class)))
+                .thenReturn(ResponseEntity.ok(enFeedResponse));
+
+        Story syncedStory = mangaDexSyncService.syncSingleManga(mangaData);
+
+        assertNotNull(syncedStory);
+        assertEquals("en", syncedStory.getLanguage());
+        assertFalse(syncedStory.getHasVietnameseTranslation());
+    }
+
+    @Test
+    void shouldDiscardStoryWhenBothVietnameseAndEnglishHaveZeroChapters() {
+        MangaDexDto.MangaData mangaData = createMockMangaData();
+
+        when(storyRepository.findById("md-manga-uuid-123")).thenReturn(Optional.empty());
+        when(storyRepository.findBySlug("cau-chuyen-anh-hung")).thenReturn(Optional.empty());
+        when(categoryRepository.findBySlug("action")).thenReturn(Optional.of(Category.builder().id("cat-action").name("Action").slug("action").build()));
+        when(storyRepository.save(any(Story.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        MangaDexDto.ChapterListResponse emptyFeed = new MangaDexDto.ChapterListResponse();
+        emptyFeed.setData(Collections.emptyList());
+
+        when(restTemplate.exchange(contains("translatedLanguage[]=vi"), eq(HttpMethod.GET), any(), eq(MangaDexDto.ChapterListResponse.class)))
+                .thenReturn(ResponseEntity.ok(emptyFeed));
+        when(restTemplate.exchange(contains("translatedLanguage[]=en"), eq(HttpMethod.GET), any(), eq(MangaDexDto.ChapterListResponse.class)))
+                .thenReturn(ResponseEntity.ok(emptyFeed));
+
+        Story syncedStory = mangaDexSyncService.syncSingleManga(mangaData);
+
+        assertNull(syncedStory);
+        verify(storyRepository, atLeastOnce()).delete(any(Story.class));
+    }
+
+    private MangaDexDto.MangaData createMockMangaData() {
         MangaDexDto.MangaData mangaData = new MangaDexDto.MangaData();
         mangaData.setId("manga-uuid-123");
 
@@ -117,28 +220,7 @@ class MangaDexSyncServiceTest {
         authorRel.setAttributes(Map.of("name", "Oda Eiichiro"));
 
         mangaData.setRelationships(List.of(coverRel, authorRel));
-
-        when(storyRepository.findById("md-manga-uuid-123")).thenReturn(Optional.empty());
-        when(storyRepository.findBySlug("cau-chuyen-anh-hung")).thenReturn(Optional.empty());
-        when(categoryRepository.findBySlug("action")).thenReturn(Optional.of(Category.builder().id("cat-action").name("Action").slug("action").build()));
-        when(storyRepository.save(any(Story.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        // Mock empty feed for chapters
-        MangaDexDto.ChapterListResponse feedResponse = new MangaDexDto.ChapterListResponse();
-        feedResponse.setData(Collections.emptyList());
-        when(restTemplate.exchange(contains("/feed"), eq(HttpMethod.GET), any(), eq(MangaDexDto.ChapterListResponse.class)))
-                .thenReturn(ResponseEntity.ok(feedResponse));
-
-        Story syncedStory = mangaDexSyncService.syncSingleManga(mangaData);
-
-        assertEquals("md-manga-uuid-123", syncedStory.getId());
-        assertEquals("Cau Chuyen Anh Hung", syncedStory.getName());
-        assertEquals("cau-chuyen-anh-hung", syncedStory.getSlug());
-        assertEquals("Mo ta tieng Viet", syncedStory.getDescription());
-        assertEquals("Oda Eiichiro", syncedStory.getAuthor());
-        assertEquals("https://uploads.mangadex.org/covers/manga-uuid-123/cover.jpg", syncedStory.getThumbUrl());
-        assertEquals("https://uploads.mangadex.org", syncedStory.getCdnDomain());
-        assertEquals(1, syncedStory.getCategories().size());
+        return mangaData;
     }
 }
 

@@ -26,6 +26,8 @@ public class StoryListDto {
     private Long viewCount;
     private Boolean isFeatured;
     private LocalDateTime updatedAt;
+    private String language;
+    private Boolean hasVietnameseTranslation;
     private List<CategoryDto> categories;
     
     public static StoryListDto fromEntity(Story story) {
@@ -47,6 +49,8 @@ public class StoryListDto {
                 .viewCount(story.getViewCount())
                 .isFeatured(story.getIsFeatured())
                 .updatedAt(story.getUpdatedAt())
+                .language(story.getLanguage() != null ? story.getLanguage() : "vi")
+                .hasVietnameseTranslation(story.getHasVietnameseTranslation() != null ? story.getHasVietnameseTranslation() : true)
                 .categories(categoryDtos)
                 .build();
     }

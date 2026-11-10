@@ -13,6 +13,8 @@
 - **Muc dich:** Bo sung nguon truyen tranh hop phap, on dinh va mien phi tu MangaDex API de giai quyet su co may chu Otruyen bi dung hoat dong.
 - **Pham vi:**
   - Tich hop REST API MangaDex (`https://api.mangadex.org`) de crawl metadata truyen co ban dich Tieng Viet.
+  - Co che Fallback Chuong Tieng Anh (English Chapter Fallback): Thu thap chuong Tieng Viet truoc, neu truyen khong co chuong Tieng Viet nao se tu dong fallback sang thu thap chuong Tieng Anh va gan co `hasVietnameseTranslation = false`. Neu ca Tieng Anh cung khong co chuong, tu dong huy bo luu truyen de tranh truyen rong (0 chapter).
+  - Tu dong quet don dep (cleanup) cac truyen cu khong co chuong luc khoi dong server.
   - Tu dong dich mo ta Tieng Anh sang Tieng Viet thong qua Google Translate API.
   - Viet hoa toan bo danh muc/the loai MangaDex (`VIETNAMESE_TAG_MAP`).
   - Pre-fetch tu dong 5 chuong dau tien vao PostgreSQL de nguoi doc mo truyen khong phai cho doi At-Home server.
@@ -64,7 +66,10 @@ sequenceDiagram
 
 ## 3. Thay doi Co so du lieu (Database Changes)
 
-- Khong yeu cau thay doi DDL schema. Cac entity hien co (`Story`, `Chapter`, `Category`) tuong thich hoan toan:
+- **Thay doi Entity & Schema:**
+  - `Story.language`: Ma ngon ngu cua bo truyen (`vi` hoac `en`, mac dinh `vi`).
+  - `Story.hasVietnameseTranslation`: Boolean danh dau truyen da co ban dich Tieng Viet hay chua (mac dinh `true`, chuyen thanh `false` neu phai fallback sang Tieng Anh).
+- Cac truong dinh danh va mapping du lieu:
   - `Story.id`: prefix `md-{mangaDexUuid}`.
   - `Story.cdnDomain`: `https://uploads.mangadex.org`.
   - `Chapter.id`: prefix `md-ch-{chapterUuid}`.

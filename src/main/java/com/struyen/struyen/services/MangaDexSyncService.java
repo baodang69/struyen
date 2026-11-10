@@ -109,7 +109,7 @@ public class MangaDexSyncService {
         log.info("Bat dau dong bo MangaDex truyen Tieng Viet: limit={}, offset={}", limit, offset);
 
         String url = String.format(
-                "%s/manga?limit=%d&offset=%d&availableTranslatedLanguage[]=vi&includes[]=cover_art&includes[]=author&order[followedCount]=desc&contentRating[]=safe&contentRating[]=suggestive",
+                "%s/manga?limit=%d&offset=%d&availableTranslatedLanguage[]=vi&availableTranslatedLanguage[]=en&includes[]=cover_art&includes[]=author&order[followedCount]=desc&contentRating[]=safe&contentRating[]=suggestive",
                 API_BASE, limit, offset
         );
 
@@ -292,11 +292,12 @@ public class MangaDexSyncService {
         long chapterCount = chapterRepository.countByStoryId(savedStory.getId());
         if (chapterCount == 0) {
             storyRepository.delete(savedStory);
-            log.warn("Bo qua va xoa truyen '{}' vi MangaDex khong co bat ky chapter Tieng Viet nao tren server.", savedStory.getName());
+            log.warn("Bo qua va xoa truyen '{}' vi ca Tieng Viet va Tieng Anh deu khong co chapter nao tren MangaDex.", savedStory.getName());
             return null;
         }
 
-        log.info("Dong bo thanh cong truyen MangaDex: '{}' (slug: {}, {} chapters)", savedStory.getName(), savedStory.getSlug(), chapterCount);
+        log.info("Dong bo thanh cong truyen MangaDex: '{}' (slug: {}, {} chapters, ngon ngu: {})",
+                savedStory.getName(), savedStory.getSlug(), chapterCount, savedStory.getLanguage());
         return savedStory;
     }
 
@@ -323,21 +324,53 @@ public class MangaDexSyncService {
     }
 
     /**
-     * Lay danh sach toan bo chapter Tieng Viet cua manga va luu vao DB.
-     * Ho tro phan trang de lay het 100% chapter, sau do khoi chay prefetch chay ngam.
+     * Lay danh sach toan bo chapter cua manga va luu vao DB.
+     * Uu tien lay chapter Tieng Viet (vi). Neu khong co chapter Tieng Viet (0 chap),
+     * tu dong fallback sang Tieng Anh (en). Neu ca Tieng Anh cung khong co chapter thi danh dau 0 chap.
      */
     public void syncChaptersForManga(Story story, String mangaDexId) {
+        Set<String> existingChapterNames = chapterRepository.findChapterNamesByStoryId(story.getId());
+
+        // 1. Uu tien cao chapter Tieng Viet
+        List<Chapter> viChapters = fetchAndSaveChaptersByLanguage(story, mangaDexId, "vi", existingChapterNames);
+        boolean hasExistingViChapters = !existingChapterNames.isEmpty() && Boolean.TRUE.equals(story.getHasVietnameseTranslation());
+        if (!viChapters.isEmpty() || hasExistingViChapters) {
+            story.setLanguage("vi");
+            story.setHasVietnameseTranslation(true);
+            storyRepository.save(story);
+            log.info("Dong bo thanh cong {} chapters Tieng Viet cho truyen '{}'", viChapters.size(), story.getName());
+            if (!viChapters.isEmpty()) {
+                prefetchAllRemainingChaptersAsync(story.getId());
+            }
+            return;
+        }
+
+        // 2. Fallback sang Tieng Anh neu Tieng Viet hoan toan khong co chapter nao
+        log.info("Truyen '{}' khong co chapter Tieng Viet tren MangaDex, bat dau fallback sang Tieng Anh (en)...", story.getName());
+        List<Chapter> enChapters = fetchAndSaveChaptersByLanguage(story, mangaDexId, "en", existingChapterNames);
+        boolean hasExistingEnChapters = !existingChapterNames.isEmpty() && "en".equals(story.getLanguage());
+        if (!enChapters.isEmpty() || hasExistingEnChapters) {
+            story.setLanguage("en");
+            story.setHasVietnameseTranslation(false);
+            storyRepository.save(story);
+            log.info("Luu thanh cong {} chapters Tieng Anh (fallback) cho truyen '{}'", enChapters.size(), story.getName());
+            if (!enChapters.isEmpty()) {
+                prefetchAllRemainingChaptersAsync(story.getId());
+            }
+        }
+    }
+
+    private List<Chapter> fetchAndSaveChaptersByLanguage(Story story, String mangaDexId, String lang, Set<String> existingChapterNames) {
         int limit = 100;
         int offset = 0;
         int total = Integer.MAX_VALUE;
-        Set<String> existingChapterNames = chapterRepository.findChapterNamesByStoryId(story.getId());
         List<Chapter> newlySavedChapters = new ArrayList<>();
 
         try {
             while (offset < total) {
                 String url = String.format(
-                        "%s/manga/%s/feed?translatedLanguage[]=vi&order[chapter]=asc&limit=%d&offset=%d&includes[]=scanlation_group",
-                        API_BASE, mangaDexId, limit, offset
+                        "%s/manga/%s/feed?translatedLanguage[]=%s&order[chapter]=asc&limit=%d&offset=%d&includes[]=scanlation_group",
+                        API_BASE, mangaDexId, lang, limit, offset
                 );
 
                 HttpHeaders headers = createMangaDexHeaders();
@@ -405,16 +438,11 @@ public class MangaDexSyncService {
 
                 offset += limit;
             }
-
-            if (!newlySavedChapters.isEmpty()) {
-                log.info("Luu thanh cong {} chapters Tieng Viet cho truyen '{}'", newlySavedChapters.size(), story.getName());
-                // Kich hoat tien trinh pre-fetch toan bo chuong chay ngam
-                prefetchAllRemainingChaptersAsync(story.getId());
-            }
-
         } catch (Exception e) {
-            log.error("Loi khi lay feed chapter cua manga {}: {}", mangaDexId, e.getMessage());
+            log.error("Loi khi lay feed chapter ({}) cua manga {}: {}", lang, mangaDexId, e.getMessage());
         }
+
+        return newlySavedChapters;
     }
 
     /**

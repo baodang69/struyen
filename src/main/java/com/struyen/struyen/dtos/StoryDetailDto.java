@@ -26,6 +26,8 @@ public class StoryDetailDto {
     private Long viewCount;
     private Boolean isFeatured;
     private LocalDateTime updatedAt;
+    private String language;
+    private Boolean hasVietnameseTranslation;
     private List<CategoryDto> categories;
     private List<ChapterShortDto> chapters;
 
@@ -54,6 +56,8 @@ public class StoryDetailDto {
                 .viewCount(story.getViewCount())
                 .isFeatured(story.getIsFeatured())
                 .updatedAt(story.getUpdatedAt())
+                .language(story.getLanguage() != null ? story.getLanguage() : "vi")
+                .hasVietnameseTranslation(story.getHasVietnameseTranslation() != null ? story.getHasVietnameseTranslation() : true)
                 .categories(categoryDtos)
                 .chapters(chapters != null ? chapters : Collections.emptyList())
                 .build();
