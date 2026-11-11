@@ -123,3 +123,4 @@ sequenceDiagram
    - Trang chủ (`/`): Section Đề cử hiển thị đúng 6 truyện từ API `getFeaturedComics`.
    - Trang Admin (`/admin` -> Quản lý Truyện): Truyện được đề cử hiển thị nút "Đưa lên đầu", bấm vào sẽ lập tức đưa truyện lên top #1.
    - Header: Hover vào "THỂ LOẠI" hiển thị Mega Dropdown danh mục thể loại; bấm "MỚI CẬP NHẬT" hiển thị đúng tiêu đề "TRUYỆN MỚI CẬP NHẬT".
+

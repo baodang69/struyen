@@ -7,7 +7,8 @@ import java.util.Set;
 
 @Entity
 @Table(name = "category", indexes = {
-    @Index(name = "idx_category_slug", columnList = "slug")
+    @Index(name = "idx_category_slug", columnList = "slug"),
+    @Index(name = "idx_category_name_vi", columnList = "name_vi")
 })
 @Getter
 @Setter
@@ -20,6 +21,8 @@ public class Category {
     
     @Column(nullable = false)
     private String name;
+
+    private String nameVi;
     
     @Column(nullable = false, unique = true)
     private String slug;

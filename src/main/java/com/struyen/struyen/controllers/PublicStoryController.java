@@ -21,8 +21,9 @@ public class PublicStoryController {
             @RequestParam(defaultValue = "12") int size,
             @RequestParam(required = false) String category,
             @RequestParam(defaultValue = "newest") String sort,
-            @RequestParam(required = false) String q) {
-        return ResponseEntity.ok(publicStoryService.getStories(page, size, category, sort, q));
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String status) {
+        return ResponseEntity.ok(publicStoryService.getStories(page, size, category, sort, q, status));
     }
 
     @GetMapping("/featured")

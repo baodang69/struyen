@@ -641,10 +641,17 @@ public class MangaDexSyncService {
             String viName = VIETNAMESE_TAG_MAP.getOrDefault(lower, tagName);
             String slug = toSlug(tagName);
 
-            Category category = categoryRepository.findBySlug(slug).orElseGet(() -> {
+            Category category = categoryRepository.findBySlug(slug).map(existing -> {
+                if (existing.getNameVi() == null || existing.getNameVi().equalsIgnoreCase(existing.getName())) {
+                    existing.setNameVi(viName);
+                    return categoryRepository.save(existing);
+                }
+                return existing;
+            }).orElseGet(() -> {
                 Category newCat = Category.builder()
                         .id("cat-" + slug)
-                        .name(viName)
+                        .name(tagName)
+                        .nameVi(viName)
                         .slug(slug)
                         .build();
                 return categoryRepository.save(newCat);

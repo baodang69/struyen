@@ -47,7 +47,7 @@ public class PublicStoryService {
      */
     @Transactional(readOnly = true)
     public PageResponse<StoryListDto> getStories(int page, int size, String category) {
-        return getStories(page, size, category, "newest", null);
+        return getStories(page, size, category, "newest", null, null);
     }
 
     /**
@@ -55,6 +55,14 @@ public class PublicStoryService {
      */
     @Transactional(readOnly = true)
     public PageResponse<StoryListDto> getStories(int page, int size, String category, String sort, String q) {
+        return getStories(page, size, category, sort, q, null);
+    }
+
+    /**
+     * Lay danh sach truyen co phan trang, sap xep, tim kiem tu khoa, loc the loai va loc trang thai tien do (status).
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<StoryListDto> getStories(int page, int size, String category, String sort, String q, String status) {
         Sort sortObj;
         String sortType = sort != null ? sort.trim().toLowerCase() : "newest";
         switch (sortType) {
@@ -81,17 +89,23 @@ public class PublicStoryService {
                 ? category.trim()
                 : null;
         final String cleanKeyword = (q != null && !q.isBlank()) ? q.trim() : null;
+        final String cleanStatus = (status != null && !status.isBlank() && !status.equalsIgnoreCase("Tất cả") && !status.equalsIgnoreCase("all"))
+                ? status.trim().toLowerCase()
+                : null;
 
         // Tim kiem thong tin Category phu hop neu co loc
         String targetCategoryId = null;
         String targetCategorySlug = null;
         String targetCategoryName = null;
+        String targetCategoryNameVi = null;
 
         if (cleanCategory != null) {
             String slugifiedInput = MangaDexSyncService.toSlug(cleanCategory);
             List<Category> allCategories = categoryRepository.findAll();
             Category matched = allCategories.stream()
                     .filter(c -> c.getName().equalsIgnoreCase(cleanCategory)
+                            || (c.getNameVi() != null && c.getNameVi().equalsIgnoreCase(cleanCategory))
+                            || (c.getNameVi() != null && MangaDexSyncService.toSlug(c.getNameVi()).equalsIgnoreCase(slugifiedInput))
                             || c.getSlug().equalsIgnoreCase(cleanCategory)
                             || MangaDexSyncService.toSlug(c.getName()).equalsIgnoreCase(slugifiedInput)
                             || c.getSlug().equalsIgnoreCase(slugifiedInput)
@@ -102,6 +116,7 @@ public class PublicStoryService {
                 targetCategoryId = matched.getId();
                 targetCategorySlug = matched.getSlug();
                 targetCategoryName = matched.getName();
+                targetCategoryNameVi = matched.getNameVi();
             } else {
                 targetCategorySlug = cleanCategory;
             }
@@ -110,11 +125,16 @@ public class PublicStoryService {
         final String finalCategoryId = targetCategoryId;
         final String finalCategorySlug = targetCategorySlug;
         final String finalCategoryName = targetCategoryName;
+        final String finalCategoryNameVi = targetCategoryNameVi;
 
         Specification<Story> spec = (root, query, cb) -> {
             query.distinct(true);
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.isTrue(root.get("isActive")));
+
+            if (cleanStatus != null) {
+                predicates.add(cb.equal(cb.lower(root.get("status")), cleanStatus));
+            }
 
             if (cleanCategory != null) {
                 Join<Story, Category> catJoin = root.join("categories", JoinType.INNER);
@@ -128,9 +148,13 @@ public class PublicStoryService {
                 if (finalCategoryName != null) {
                     catPreds.add(cb.equal(cb.lower(catJoin.get("name")), finalCategoryName.toLowerCase()));
                 }
+                if (finalCategoryNameVi != null) {
+                    catPreds.add(cb.equal(cb.lower(catJoin.get("nameVi")), finalCategoryNameVi.toLowerCase()));
+                }
                 if (catPreds.isEmpty()) {
                     catPreds.add(cb.equal(cb.lower(catJoin.get("slug")), cleanCategory.toLowerCase()));
                     catPreds.add(cb.equal(cb.lower(catJoin.get("name")), cleanCategory.toLowerCase()));
+                    catPreds.add(cb.equal(cb.lower(catJoin.get("nameVi")), cleanCategory.toLowerCase()));
                 }
                 predicates.add(cb.or(catPreds.toArray(new Predicate[0])));
             }
@@ -276,10 +300,21 @@ public class PublicStoryService {
     }
 
     /**
-     * Lấy toàn bộ danh sách thể loại truyện hiện có trong hệ thống.
+     * Lay toan bo danh sach the loai truyen hien co trong he thong kem so luong truyen.
      */
     @Transactional(readOnly = true)
     public List<CategoryDto> getAllCategories() {
+        List<Object[]> rawList = categoryRepository.findAllCategoriesWithStoryCount();
+        if (rawList != null && !rawList.isEmpty()) {
+            List<CategoryDto> result = new ArrayList<>();
+            for (Object[] row : rawList) {
+                Category cat = (Category) row[0];
+                Long count = row[1] != null ? ((Number) row[1]).longValue() : 0L;
+                result.add(CategoryDto.fromEntity(cat, count));
+            }
+            return result;
+        }
+
         return categoryRepository.findAllByOrderByNameAsc().stream()
                 .map(CategoryDto::fromEntity)
                 .toList();
