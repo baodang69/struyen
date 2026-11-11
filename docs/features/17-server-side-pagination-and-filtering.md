@@ -92,3 +92,4 @@ sequenceDiagram
    - Kiểm tra chuyển trang: URL tự động đổi sang `?page=2`, gọi API lấy đúng 12 truyện của trang 2.
    - Kiểm tra đổi thể loại: URL cập nhật thể loại, reset về trang 1.
    - Kiểm tra tìm kiếm: Input tìm kiếm tự động lọc truyện theo từ khóa trực tiếp.
+
