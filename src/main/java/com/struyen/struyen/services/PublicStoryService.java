@@ -28,6 +28,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -147,6 +149,38 @@ public class PublicStoryService {
         Page<Story> storyPage = storyRepository.findAll(spec, pageable);
         Page<StoryListDto> dtoPage = storyPage.map(StoryListDto::fromEntity);
         return PageResponse.of(dtoPage);
+    }
+
+    /**
+     * Lay danh sach truyen de cu (Featured Stories) cho Trang chu:
+     * Uu tien truyen co isFeatured = true, sap xep theo featuredAt DESC (moi nhat len dau).
+     * Neu so luong truyen de cu chua du slot, bo sung bang cac truyen co luot xem cao nhat.
+     */
+    @Transactional(readOnly = true)
+    public List<StoryListDto> getFeaturedStories(int limit) {
+        int maxLimit = (limit > 0 && limit <= 20) ? limit : 6;
+        Pageable pageable = PageRequest.of(0, maxLimit);
+        List<Story> featured = storyRepository.findFeaturedStories(pageable);
+        if (featured.size() >= maxLimit) {
+            return featured.stream().map(StoryListDto::fromEntity).toList();
+        }
+
+        List<Story> result = new ArrayList<>(featured);
+        Set<String> existingIds = featured.stream().map(Story::getId).collect(Collectors.toSet());
+
+        // Neu chua du slot de cu, bo sung bang cac truyen co luot doc cao nhat
+        int remaining = maxLimit - result.size();
+        Pageable popularPage = PageRequest.of(0, remaining + 10);
+        List<Story> popular = storyRepository.findByIsActiveTrueOrderByViewCountDesc(popularPage);
+        for (Story s : popular) {
+            if (result.size() >= maxLimit) break;
+            if (!existingIds.contains(s.getId())) {
+                result.add(s);
+                existingIds.add(s.getId());
+            }
+        }
+
+        return result.stream().map(StoryListDto::fromEntity).toList();
     }
 
     /**

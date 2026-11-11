@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -36,6 +37,16 @@ public class AdminStoryController {
     public ResponseEntity<Map<String, Object>> toggleFeatured(@PathVariable String id) {
         boolean newStatus = adminService.toggleStoryFeatured(id);
         return ResponseEntity.ok(Map.of("storyId", id, "isFeatured", newStatus));
+    }
+
+    @PostMapping("/{id}/bump-featured")
+    public ResponseEntity<AdminStoryDto> bumpFeatured(@PathVariable String id) {
+        return ResponseEntity.ok(adminService.bumpStoryFeatured(id));
+    }
+
+    @GetMapping("/featured")
+    public ResponseEntity<List<AdminStoryDto>> getFeaturedStories() {
+        return ResponseEntity.ok(adminService.getFeaturedStories());
     }
 }
 

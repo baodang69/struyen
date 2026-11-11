@@ -3,6 +3,7 @@ package com.struyen.struyen.config;
 import com.struyen.struyen.entities.Role;
 import com.struyen.struyen.entities.User;
 import com.struyen.struyen.repositories.RoleRepository;
+import com.struyen.struyen.repositories.StoryRepository;
 import com.struyen.struyen.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
+    private final StoryRepository storyRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -28,6 +30,17 @@ public class DataInitializer implements CommandLineRunner {
         Role memberRole = initRoleIfNotFound("ROLE_MEMBER", "Quyen thanh vien doc truyen tieu chuan");
         Role adminRole = initRoleIfNotFound("ROLE_ADMIN", "Quyen quan tri vien he thong");
         initAdminUserIfNotFound(adminRole, memberRole);
+
+        try {
+            int backfilledChapters = storyRepository.backfillLatestChapterNames();
+            int backfilledFeatured = storyRepository.backfillFeaturedAt();
+            if (backfilledChapters > 0 || backfilledFeatured > 0) {
+                log.info("Da backfill du lieu khoi tao: {} truyen co chuong moi nhat, {} truyen de cu co thoi gian featuredAt",
+                        backfilledChapters, backfilledFeatured);
+            }
+        } catch (Exception e) {
+            log.warn("Bo qua backfill du lieu khoi tao neu bang chua san sang: {}", e.getMessage());
+        }
     }
 
     private Role initRoleIfNotFound(String name, String description) {

@@ -25,6 +25,8 @@ public class StoryListDto {
     private String status;
     private Long viewCount;
     private Boolean isFeatured;
+    private LocalDateTime featuredAt;
+    private String latestChapterName;
     private LocalDateTime updatedAt;
     private String language;
     private Boolean hasVietnameseTranslation;
@@ -48,6 +50,8 @@ public class StoryListDto {
                 .status(story.getStatus())
                 .viewCount(story.getViewCount())
                 .isFeatured(story.getIsFeatured())
+                .featuredAt(story.getFeaturedAt())
+                .latestChapterName(story.getLatestChapterName())
                 .updatedAt(story.getUpdatedAt())
                 .language(story.getLanguage() != null ? story.getLanguage() : "vi")
                 .hasVietnameseTranslation(story.getHasVietnameseTranslation() != null ? story.getHasVietnameseTranslation() : true)

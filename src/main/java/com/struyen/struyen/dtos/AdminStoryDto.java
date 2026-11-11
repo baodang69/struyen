@@ -21,6 +21,7 @@ public class AdminStoryDto {
     private String author;
     private Boolean isActive;
     private Boolean isFeatured;
+    private LocalDateTime featuredAt;
     private Long viewCount;
     private LocalDateTime updatedAt;
 
@@ -35,6 +36,7 @@ public class AdminStoryDto {
                 .author(story.getAuthor())
                 .isActive(story.getIsActive())
                 .isFeatured(story.getIsFeatured())
+                .featuredAt(story.getFeaturedAt())
                 .viewCount(story.getViewCount())
                 .updatedAt(story.getUpdatedAt())
                 .build();

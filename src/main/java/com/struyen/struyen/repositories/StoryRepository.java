@@ -51,4 +51,25 @@ public interface StoryRepository extends JpaRepository<Story, String>, JpaSpecif
     Page<Story> findByNameContainingIgnoreCaseOrSlugContainingIgnoreCase(String name, String slug, Pageable pageable);
 
     Page<Story> findAllByOrderByUpdatedAtDesc(Pageable pageable);
+
+    @EntityGraph(attributePaths = {"categories"})
+    @Query("SELECT s FROM Story s WHERE s.isActive = true AND s.isFeatured = true ORDER BY s.featuredAt DESC NULLS LAST, s.updatedAt DESC")
+    List<Story> findFeaturedStories(Pageable pageable);
+
+    @EntityGraph(attributePaths = {"categories"})
+    @Query("SELECT s FROM Story s WHERE s.isFeatured = true ORDER BY s.featuredAt DESC NULLS LAST, s.updatedAt DESC")
+    List<Story> findAllFeaturedStories();
+
+    @EntityGraph(attributePaths = {"categories"})
+    List<Story> findByIsActiveTrueOrderByViewCountDesc(Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = "UPDATE story s SET latest_chapter_name = (" +
+                   "  SELECT c.chapter_name FROM chapter c WHERE c.story_id = s.id ORDER BY c.created_at DESC LIMIT 1" +
+                   ") WHERE s.latest_chapter_name IS NULL", nativeQuery = true)
+    int backfillLatestChapterNames();
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = "UPDATE story s SET featured_at = s.updated_at WHERE s.is_featured = true AND s.featured_at IS NULL", nativeQuery = true)
+    int backfillFeaturedAt();
 }

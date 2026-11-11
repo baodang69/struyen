@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -51,9 +52,33 @@ public class AdminService {
 
         boolean newFeatured = !Boolean.TRUE.equals(story.getIsFeatured());
         story.setIsFeatured(newFeatured);
+        if (newFeatured) {
+            story.setFeaturedAt(LocalDateTime.now());
+        } else {
+            story.setFeaturedAt(null);
+        }
         storyRepository.save(story);
-        log.info("Admin da doi trang thai isFeatured cua truyen {} thanh: {}", story.getName(), newFeatured);
+        log.info("Admin da doi trang thai isFeatured cua truyen {} thanh: {}, featuredAt: {}", story.getName(), newFeatured, story.getFeaturedAt());
         return newFeatured;
+    }
+
+    @Transactional
+    public AdminStoryDto bumpStoryFeatured(String storyId) {
+        Story story = storyRepository.findById(storyId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Khong tim thay truyen: " + storyId));
+
+        story.setIsFeatured(true);
+        story.setFeaturedAt(LocalDateTime.now());
+        Story saved = storyRepository.save(story);
+        log.info("Admin da dua truyen len dau danh sach de cu: {}", saved.getName());
+        return AdminStoryDto.fromEntity(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminStoryDto> getFeaturedStories() {
+        return storyRepository.findAllFeaturedStories().stream()
+                .map(AdminStoryDto::fromEntity)
+                .toList();
     }
 
     @Transactional(readOnly = true)

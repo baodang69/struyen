@@ -25,6 +25,12 @@ public class PublicStoryController {
         return ResponseEntity.ok(publicStoryService.getStories(page, size, category, sort, q));
     }
 
+    @GetMapping("/featured")
+    public ResponseEntity<java.util.List<StoryListDto>> getFeaturedStories(
+            @RequestParam(defaultValue = "6") int limit) {
+        return ResponseEntity.ok(publicStoryService.getFeaturedStories(limit));
+    }
+
     @GetMapping("/{slug}")
     public ResponseEntity<StoryDetailDto> getStoryDetail(@PathVariable String slug) {
         return ResponseEntity.ok(publicStoryService.getStoryDetail(slug));

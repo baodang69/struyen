@@ -361,6 +361,9 @@ public class MangaDexSyncService {
         if (!viChapters.isEmpty() || hasExistingViChapters) {
             story.setLanguage("vi");
             story.setHasVietnameseTranslation(true);
+            if (!viChapters.isEmpty()) {
+                story.setLatestChapterName(viChapters.get(viChapters.size() - 1).getChapterName());
+            }
             storyRepository.save(story);
             log.info("Dong bo thanh cong {} chapters Tieng Viet cho truyen '{}'", viChapters.size(), story.getName());
             return;
@@ -373,6 +376,9 @@ public class MangaDexSyncService {
         if (!enChapters.isEmpty() || hasExistingEnChapters) {
             story.setLanguage("en");
             story.setHasVietnameseTranslation(false);
+            if (!enChapters.isEmpty()) {
+                story.setLatestChapterName(enChapters.get(enChapters.size() - 1).getChapterName());
+            }
             storyRepository.save(story);
             log.info("Luu thanh cong {} chapters Tieng Anh (fallback) cho truyen '{}'", enChapters.size(), story.getName());
         }

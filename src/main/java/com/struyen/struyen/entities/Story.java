@@ -13,7 +13,8 @@ import java.util.Set;
 @Table(name = "story", indexes = {
     @Index(name = "idx_story_slug", columnList = "slug"),
     @Index(name = "idx_story_updated_at", columnList = "updated_at DESC"),
-    @Index(name = "idx_story_active", columnList = "is_active")
+    @Index(name = "idx_story_active", columnList = "is_active"),
+    @Index(name = "idx_story_featured", columnList = "is_featured, featured_at DESC")
 })
 @Getter
 @Setter
@@ -47,6 +48,10 @@ public class Story {
     
     @Builder.Default
     private Boolean isFeatured = false;
+
+    private LocalDateTime featuredAt;
+
+    private String latestChapterName;
 
     @Builder.Default
     private String language = "vi";
