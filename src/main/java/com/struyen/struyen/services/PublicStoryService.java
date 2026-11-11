@@ -93,39 +93,40 @@ public class PublicStoryService {
                 ? status.trim().toLowerCase()
                 : null;
 
-        // Tim kiem thong tin Category phu hop neu co loc
-        String targetCategoryId = null;
-        String targetCategorySlug = null;
-        String targetCategoryName = null;
-        String targetCategoryNameVi = null;
+        // Tim kiem thong tin Category phu hop neu co loc (ho tro ket hop nhieu the loai cach nhau boi dau phay)
+        record ResolvedCategoryFilter(String id, String slug, String name, String nameVi, String fallback) {}
 
-        if (cleanCategory != null) {
-            String slugifiedInput = MangaDexSyncService.toSlug(cleanCategory);
+        List<String> rawCategoryTokens = (cleanCategory != null)
+                ? java.util.Arrays.stream(cleanCategory.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isBlank() && !s.equalsIgnoreCase("Tất cả") && !s.equalsIgnoreCase("all"))
+                        .distinct()
+                        .toList()
+                : List.of();
+
+        List<ResolvedCategoryFilter> resolvedFilters = new ArrayList<>();
+        if (!rawCategoryTokens.isEmpty()) {
             List<Category> allCategories = categoryRepository.findAll();
-            Category matched = allCategories.stream()
-                    .filter(c -> c.getName().equalsIgnoreCase(cleanCategory)
-                            || (c.getNameVi() != null && c.getNameVi().equalsIgnoreCase(cleanCategory))
-                            || (c.getNameVi() != null && MangaDexSyncService.toSlug(c.getNameVi()).equalsIgnoreCase(slugifiedInput))
-                            || c.getSlug().equalsIgnoreCase(cleanCategory)
-                            || MangaDexSyncService.toSlug(c.getName()).equalsIgnoreCase(slugifiedInput)
-                            || c.getSlug().equalsIgnoreCase(slugifiedInput)
-                            || c.getId().equalsIgnoreCase(cleanCategory))
-                    .findFirst()
-                    .orElse(null);
-            if (matched != null) {
-                targetCategoryId = matched.getId();
-                targetCategorySlug = matched.getSlug();
-                targetCategoryName = matched.getName();
-                targetCategoryNameVi = matched.getNameVi();
-            } else {
-                targetCategorySlug = cleanCategory;
+            for (String tok : rawCategoryTokens) {
+                String slugifiedInput = MangaDexSyncService.toSlug(tok);
+                Category matched = allCategories.stream()
+                        .filter(c -> c.getName().equalsIgnoreCase(tok)
+                                || (c.getNameVi() != null && c.getNameVi().equalsIgnoreCase(tok))
+                                || (c.getNameVi() != null && MangaDexSyncService.toSlug(c.getNameVi()).equalsIgnoreCase(slugifiedInput))
+                                || c.getSlug().equalsIgnoreCase(tok)
+                                || MangaDexSyncService.toSlug(c.getName()).equalsIgnoreCase(slugifiedInput)
+                                || c.getSlug().equalsIgnoreCase(slugifiedInput)
+                                || c.getId().equalsIgnoreCase(tok))
+                        .findFirst()
+                        .orElse(null);
+
+                if (matched != null) {
+                    resolvedFilters.add(new ResolvedCategoryFilter(matched.getId(), matched.getSlug(), matched.getName(), matched.getNameVi(), null));
+                } else {
+                    resolvedFilters.add(new ResolvedCategoryFilter(null, null, null, null, tok));
+                }
             }
         }
-
-        final String finalCategoryId = targetCategoryId;
-        final String finalCategorySlug = targetCategorySlug;
-        final String finalCategoryName = targetCategoryName;
-        final String finalCategoryNameVi = targetCategoryNameVi;
 
         Specification<Story> spec = (root, query, cb) -> {
             query.distinct(true);
@@ -136,27 +137,29 @@ public class PublicStoryService {
                 predicates.add(cb.equal(cb.lower(root.get("status")), cleanStatus));
             }
 
-            if (cleanCategory != null) {
-                Join<Story, Category> catJoin = root.join("categories", JoinType.INNER);
-                List<Predicate> catPreds = new ArrayList<>();
-                if (finalCategoryId != null) {
-                    catPreds.add(cb.equal(catJoin.get("id"), finalCategoryId));
+            if (!resolvedFilters.isEmpty()) {
+                for (ResolvedCategoryFilter filter : resolvedFilters) {
+                    Join<Story, Category> catJoin = root.join("categories", JoinType.INNER);
+                    List<Predicate> catPreds = new ArrayList<>();
+                    if (filter.id() != null) {
+                        catPreds.add(cb.equal(catJoin.get("id"), filter.id()));
+                    }
+                    if (filter.slug() != null) {
+                        catPreds.add(cb.equal(cb.lower(catJoin.get("slug")), filter.slug().toLowerCase()));
+                    }
+                    if (filter.name() != null) {
+                        catPreds.add(cb.equal(cb.lower(catJoin.get("name")), filter.name().toLowerCase()));
+                    }
+                    if (filter.nameVi() != null) {
+                        catPreds.add(cb.equal(cb.lower(catJoin.get("nameVi")), filter.nameVi().toLowerCase()));
+                    }
+                    if (filter.fallback() != null) {
+                        catPreds.add(cb.equal(cb.lower(catJoin.get("slug")), filter.fallback().toLowerCase()));
+                        catPreds.add(cb.equal(cb.lower(catJoin.get("name")), filter.fallback().toLowerCase()));
+                        catPreds.add(cb.equal(cb.lower(catJoin.get("nameVi")), filter.fallback().toLowerCase()));
+                    }
+                    predicates.add(cb.or(catPreds.toArray(new Predicate[0])));
                 }
-                if (finalCategorySlug != null) {
-                    catPreds.add(cb.equal(cb.lower(catJoin.get("slug")), finalCategorySlug.toLowerCase()));
-                }
-                if (finalCategoryName != null) {
-                    catPreds.add(cb.equal(cb.lower(catJoin.get("name")), finalCategoryName.toLowerCase()));
-                }
-                if (finalCategoryNameVi != null) {
-                    catPreds.add(cb.equal(cb.lower(catJoin.get("nameVi")), finalCategoryNameVi.toLowerCase()));
-                }
-                if (catPreds.isEmpty()) {
-                    catPreds.add(cb.equal(cb.lower(catJoin.get("slug")), cleanCategory.toLowerCase()));
-                    catPreds.add(cb.equal(cb.lower(catJoin.get("name")), cleanCategory.toLowerCase()));
-                    catPreds.add(cb.equal(cb.lower(catJoin.get("nameVi")), cleanCategory.toLowerCase()));
-                }
-                predicates.add(cb.or(catPreds.toArray(new Predicate[0])));
             }
 
             if (cleanKeyword != null) {

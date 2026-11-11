@@ -12,11 +12,13 @@
 
 - **Mục đích:** 
   1. Thêm trường `nameVi` vào bảng `category` và đồng bộ từ điển song ngữ chuẩn hóa 100% 76 thể loại trong database, kèm `storyCount` đếm số lượng truyện thực tế.
-  2. Loại bỏ ô tìm kiếm và bộ lọc trùng lặp bên dưới thân trang, đồng bộ tìm kiếm toàn cục duy nhất trên Header.
-  3. Tách bạch hoàn toàn hai trang riêng biệt: Trang **Mới cập nhật (`/latest`)** tập trung vào dòng thời gian chương mới, và Trang **Thể loại (`/genres`)** với Bộ công cụ lọc thể loại chuyên sâu (Category Filter Suite) thay thế thanh slider trượt ngang.
+  2. Bổ sung tính năng tìm kiếm kết hợp nhiều thể loại đồng thời (Multi-Category Combination Filter - AND logic) trên cả API Backend và Giao diện Frontend.
+  3. Loại bỏ tiêu đề text lớn và mô tả cồng kềnh ở phần trên của các trang Thể loại, Mới cập nhật và Top đọc nhiều để giao diện gọn gàng, hiện đại.
+  4. Giữ nguyên thiết kế thanh trượt ngang thể loại (Category Slider) cho trang **Mới cập nhật (`/latest`)** và trang **Top đọc nhiều (`/popular`)**.
+  5. Nâng cấp trang **Thể loại (`/genres`)** thành trung tâm bộ lọc thể loại kết hợp toàn diện (Category Filter Suite).
 - **Phạm vi:** 
   - Backend `struyen_be`: Entity `Category`, `CategoryDto`, `CategoryRepository`, `PublicStoryService`, `PublicStoryController`, `MangaDexSyncService`, `DataInitializer`.
-  - Frontend `komika-fe`: `backend-types.ts`, `comics.endpoints.ts`, `comics.api.ts`, `comics.mapper.ts`, `GenrePage.tsx`, `LatestUpdatesPage.tsx`, `/app/latest/page.tsx`, `/app/genres/page.tsx`, `Header.tsx`, `page.tsx` (Trang chủ).
+  - Frontend `komika-fe`: `backend-types.ts`, `comics.endpoints.ts`, `comics.api.ts`, `comics.mapper.ts`, `GenrePage.tsx`, `ComicSliderPage.tsx`, `LatestUpdatesPage.tsx`, `/app/latest/page.tsx`, `/app/popular/page.tsx`, `/app/genres/page.tsx`, `Header.tsx`, `Footer.tsx`, `page.tsx` (Trang chủ).
 - **Yêu cầu kỹ thuật:** JPA Custom Aggregation Query (`COUNT DISTINCT`), Bilingual Schema Migration, Next.js App Router, Tailwind CSS.
 
 ---
@@ -134,3 +136,4 @@ sequenceDiagram
    - Quan sát: Bảng chọn thể loại trực quan (Pills Grid) hiển thị tiếng Việt kèm số lượng truyện thực tế.
    - Bấm chọn thể loại: URL cập nhật `?genre=...`, danh sách truyện lọc tương ứng ngay lập tức.
    - Thử nghiệm các bộ lọc phụ: Tiến độ, Sắp xếp, View mode.
+
