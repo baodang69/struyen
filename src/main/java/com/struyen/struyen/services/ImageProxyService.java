@@ -1,14 +1,20 @@
 package com.struyen.struyen.services;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,19 +28,17 @@ public class ImageProxyService {
 
     private final RestTemplate restTemplate;
 
+    // Thu muc Disk Cache de luu tru vinh vien anh that da tai ve
+    private final Path cacheDir = Paths.get("data", "cache", "images");
+
     // Gioi han dung luong toi da cho mot file anh (15 MB) de chong tran bo nho Heap (OOM)
     private static final long MAX_IMAGE_SIZE_BYTES = 15 * 1024 * 1024;
-
-    // Negative cache: Ghi nho cac URL anh that bai trong 10 phut de tra ve fallback ngay lap tuc ma khong goi mang
-    private final Map<String, Long> failedUrlsCache = new ConcurrentHashMap<>();
-    private static final long NEGATIVE_CACHE_TTL_MS = 10 * 60 * 1000L;
-    private static final int MAX_NEGATIVE_CACHE_ENTRIES = 5000;
 
     // Memory cache: Cache cac anh tai thanh cong (dung luong <= 1MB vi du anh bia) trong 1 gio
     public record CachedImage(byte[] data, MediaType contentType, long cachedAt) {}
     private final Map<String, CachedImage> imageMemoryCache = new ConcurrentHashMap<>();
     private static final long IMAGE_MEMORY_CACHE_TTL_MS = 60 * 60 * 1000L;
-    private static final int MAX_MEMORY_CACHE_ENTRIES = 400;
+    private static final int MAX_MEMORY_CACHE_ENTRIES = 500;
 
     // Fallback SVG image when upstream CDN image cannot be retrieved
     private static final byte[] FALLBACK_SVG_BYTES = (
@@ -60,6 +64,15 @@ public class ImageProxyService {
     private static final String MANGADEX_USER_AGENT = "StruyenReader/1.0 (https://github.com/struyen/struyen_be; contact@struyen.com)";
     private static final String DEFAULT_BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
+    @PostConstruct
+    public void init() {
+        try {
+            Files.createDirectories(cacheDir);
+        } catch (IOException e) {
+            log.error("Khong the khoi tao thu muc disk cache anh: {}", e.getMessage());
+        }
+    }
+
     public ResponseEntity<byte[]> fetchImage(String rawImageUrl) {
         String imageUrl = normalizeUrl(rawImageUrl);
 
@@ -69,103 +82,149 @@ public class ImageProxyService {
             return createFallbackResponse(HttpStatus.BAD_REQUEST);
         }
 
-        // 2. Kiem tra Negative Cache (Neu URL da tung that bai gan day, tra ve fallback ngay lap tuc)
-        Long failedTimestamp = failedUrlsCache.get(imageUrl);
-        if (failedTimestamp != null) {
-            if (System.currentTimeMillis() - failedTimestamp < NEGATIVE_CACHE_TTL_MS) {
-                return createFallbackResponse(HttpStatus.OK);
-            } else {
-                failedUrlsCache.remove(imageUrl);
-            }
-        }
-
-        // 3. Kiem tra In-Memory Cache (Phuc vu anh tuc thi neu da co trong RAM)
-        CachedImage cached = imageMemoryCache.get(imageUrl);
-        if (cached != null) {
-            if (System.currentTimeMillis() - cached.cachedAt() < IMAGE_MEMORY_CACHE_TTL_MS) {
+        // 2. Kiem tra In-Memory Cache (Phuc vu anh tuc thi neu da co trong RAM)
+        CachedImage memoryCached = imageMemoryCache.get(imageUrl);
+        if (memoryCached != null) {
+            if (System.currentTimeMillis() - memoryCached.cachedAt() < IMAGE_MEMORY_CACHE_TTL_MS) {
                 HttpHeaders responseHeaders = new HttpHeaders();
-                responseHeaders.setContentType(cached.contentType());
+                responseHeaders.setContentType(memoryCached.contentType());
                 responseHeaders.setCacheControl(CacheControl.maxAge(30, TimeUnit.DAYS).cachePublic());
-                return new ResponseEntity<>(cached.data(), responseHeaders, HttpStatus.OK);
+                return new ResponseEntity<>(memoryCached.data(), responseHeaders, HttpStatus.OK);
             } else {
                 imageMemoryCache.remove(imageUrl);
             }
         }
 
+        // 3. Kiem tra Disk Cache (Neu anh da luu tren o dia, doc va tra ve trong 1ms)
+        String hash = hashUrl(imageUrl);
+        Path dataFile = cacheDir.resolve(hash + ".data");
+        Path typeFile = cacheDir.resolve(hash + ".type");
         try {
-            URI uri = URI.create(imageUrl);
-            String host = uri.getHost() != null ? uri.getHost().toLowerCase() : "";
+            if (Files.exists(dataFile) && Files.size(dataFile) > 0) {
+                byte[] data = Files.readAllBytes(dataFile);
+                String typeStr = Files.exists(typeFile) ? Files.readString(typeFile).trim() : "image/jpeg";
+                MediaType mediaType = MediaType.parseMediaType(typeStr);
 
-            HttpHeaders headers = new HttpHeaders();
-            if (host.endsWith("mangadex.org") || host.endsWith("mangadex.network")) {
-                headers.set(HttpHeaders.USER_AGENT, MANGADEX_USER_AGENT);
-            } else {
-                headers.set("Referer", "https://otruyenapi.com/");
-                headers.set(HttpHeaders.USER_AGENT, DEFAULT_BROWSER_USER_AGENT);
+                // Cache vao RAM de lan tiep theo nhanh hon nua
+                imageMemoryCache.put(imageUrl, new CachedImage(data, mediaType, System.currentTimeMillis()));
+
+                HttpHeaders responseHeaders = new HttpHeaders();
+                responseHeaders.setContentType(mediaType);
+                responseHeaders.setCacheControl(CacheControl.maxAge(30, TimeUnit.DAYS).cachePublic());
+                return new ResponseEntity<>(data, responseHeaders, HttpStatus.OK);
             }
-            headers.set(HttpHeaders.ACCEPT, "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8");
+        } catch (Exception e) {
+            log.warn("Loi doc disk cache cho anh {}: {}", imageUrl, e.getMessage());
+        }
 
-            HttpEntity<Void> entity = new HttpEntity<>(headers);
+        // 4. Neu chua co trong cache, thuc hien tai anh thuc te tu CDN bang duoc
+        byte[] body = null;
+        MediaType contentType = MediaType.IMAGE_JPEG;
 
-            ResponseEntity<byte[]> response = restTemplate.exchange(
-                    imageUrl,
-                    HttpMethod.GET,
-                    entity,
-                    byte[].class
-            );
+        // Xay dung danh sach URL thu nghiem (Uu tien anh goc; neu la cover MangaDex bi loi thi fallback sang .512.jpg va .256.jpg)
+        List<String> urlsToTry = new ArrayList<>();
+        urlsToTry.add(imageUrl);
+        if (imageUrl.contains("uploads.mangadex.org/covers/") && !imageUrl.endsWith(".512.jpg") && !imageUrl.endsWith(".256.jpg")) {
+            urlsToTry.add(imageUrl + ".512.jpg");
+            urlsToTry.add(imageUrl + ".256.jpg");
+        }
 
-            // Kiem tra Content-Length de bao ve Heap RAM khoi OOM
-            List<String> contentLengthHeaders = response.getHeaders().get(HttpHeaders.CONTENT_LENGTH);
-            if (contentLengthHeaders != null && !contentLengthHeaders.isEmpty()) {
-                long contentLength = Long.parseLong(contentLengthHeaders.get(0));
-                if (contentLength > MAX_IMAGE_SIZE_BYTES) {
-                    log.warn("[OOM Protection] Tu choi anh co dung luong vuot nguong: {} bytes", contentLength);
-                    return createFallbackResponse(HttpStatus.PAYLOAD_TOO_LARGE);
+        for (String targetUrl : urlsToTry) {
+            try {
+                URI uri = URI.create(targetUrl);
+                String host = uri.getHost() != null ? uri.getHost().toLowerCase() : "";
+
+                HttpHeaders headers = new HttpHeaders();
+                if (host.endsWith("mangadex.org") || host.endsWith("mangadex.network")) {
+                    headers.set(HttpHeaders.USER_AGENT, MANGADEX_USER_AGENT);
+                } else {
+                    headers.set(HttpHeaders.USER_AGENT, DEFAULT_BROWSER_USER_AGENT);
                 }
+                headers.set(HttpHeaders.ACCEPT, "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8");
+
+                HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+                ResponseEntity<byte[]> response = restTemplate.exchange(
+                        targetUrl,
+                        HttpMethod.GET,
+                        entity,
+                        byte[].class
+                );
+
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null && response.getBody().length > 0) {
+                    // Kiem tra kich thuoc anh chong OOM
+                    if (response.getBody().length > MAX_IMAGE_SIZE_BYTES) {
+                        log.warn("[OOM Protection] Tu choi anh co dung luong vuot nguong: {} bytes", response.getBody().length);
+                        return createFallbackResponse(HttpStatus.PAYLOAD_TOO_LARGE);
+                    }
+
+                    body = response.getBody();
+                    if (response.getHeaders().getContentType() != null) {
+                        contentType = response.getHeaders().getContentType();
+                    }
+                    log.info("Da lay thanh cong anh that tu CDN: {} ({} bytes)", targetUrl, body.length);
+                    break;
+                }
+            } catch (Exception e) {
+                log.warn("Thu lay anh that tu {} that bai: {}. Thu phuong an tiep theo...", targetUrl, e.getMessage());
+            }
+        }
+
+        // 5. Luu vao ca Disk Cache va Memory Cache khi lay thanh cong anh that
+        if (body != null) {
+            try {
+                Files.createDirectories(cacheDir);
+                Files.write(dataFile, body);
+                Files.writeString(typeFile, contentType.toString());
+            } catch (Exception e) {
+                log.warn("Khong the ghi disk cache cho anh {}: {}", imageUrl, e.getMessage());
             }
 
-            HttpHeaders responseHeaders = new HttpHeaders();
-            MediaType contentType = response.getHeaders().getContentType();
-            if (contentType != null) {
-                responseHeaders.setContentType(contentType);
-            } else {
-                responseHeaders.setContentType(MediaType.IMAGE_JPEG);
-            }
-
-            // Thiet lap Cache-Control de trinh duyet tu do cache trong 30 ngay (giup giam tai server proxy)
-            responseHeaders.setCacheControl(CacheControl.maxAge(30, TimeUnit.DAYS).cachePublic());
-
-            byte[] body = response.getBody();
-            if (body != null && body.length <= 1024 * 1024) {
+            if (body.length <= 1024 * 1024) {
                 if (imageMemoryCache.size() >= MAX_MEMORY_CACHE_ENTRIES) {
                     imageMemoryCache.clear();
                 }
-                imageMemoryCache.put(imageUrl, new CachedImage(body, contentType != null ? contentType : MediaType.IMAGE_JPEG, System.currentTimeMillis()));
+                imageMemoryCache.put(imageUrl, new CachedImage(body, contentType, System.currentTimeMillis()));
             }
 
+            HttpHeaders responseHeaders = new HttpHeaders();
+            responseHeaders.setContentType(contentType);
+            responseHeaders.setCacheControl(CacheControl.maxAge(30, TimeUnit.DAYS).cachePublic());
             return new ResponseEntity<>(body, responseHeaders, HttpStatus.OK);
-
-        } catch (HttpStatusCodeException e) {
-            recordFailedUrl(imageUrl);
-            log.warn("Loi HTTP {} tu CDN goc khi tai anh {}: {}. Tra ve fallback placeholder.", e.getStatusCode(), imageUrl, e.getMessage());
-            return createFallbackResponse(HttpStatus.OK);
-        } catch (Exception e) {
-            recordFailedUrl(imageUrl);
-            log.warn("Loi khong mong muon khi proxy anh {}: {}. Tra ve fallback placeholder.", imageUrl, e.getMessage());
-            return createFallbackResponse(HttpStatus.OK);
         }
+
+        // Truong hop bat kha khang sau khi da thu moi bien phap van khong the ket noi toi CDN
+        log.error("Khong the tai anh that cho URL: {} sau khi thu tat ca cac phuong an", imageUrl);
+        return createFallbackResponse(HttpStatus.OK);
     }
 
-    private void recordFailedUrl(String imageUrl) {
-        if (failedUrlsCache.size() >= MAX_NEGATIVE_CACHE_ENTRIES) {
-            failedUrlsCache.clear();
+    private String hashUrl(String url) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(url.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return Integer.toHexString(url.hashCode());
         }
-        failedUrlsCache.put(imageUrl, System.currentTimeMillis());
     }
 
     public void clearCaches() {
-        failedUrlsCache.clear();
         imageMemoryCache.clear();
+        try {
+            if (Files.exists(cacheDir)) {
+                try (var stream = Files.list(cacheDir)) {
+                    stream.forEach(p -> {
+                        try {
+                            Files.deleteIfExists(p);
+                        } catch (IOException ignored) {}
+                    });
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     private ResponseEntity<byte[]> createFallbackResponse(HttpStatus status) {

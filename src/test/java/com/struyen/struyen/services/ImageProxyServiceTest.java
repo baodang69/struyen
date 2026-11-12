@@ -27,6 +27,7 @@ class ImageProxyServiceTest {
     @BeforeEach
     void setUp() {
         imageProxyService = new ImageProxyService(restTemplate);
+        imageProxyService.clearCaches();
     }
 
     @Test
@@ -137,19 +138,44 @@ class ImageProxyServiceTest {
     }
 
     @Test
-    void shouldServeFromNegativeCacheWhenPreviousRequestFailed() {
-        when(restTemplate.exchange(eq("https://uploads.mangadex.org/covers/fail/test.jpg"), eq(HttpMethod.GET), any(), eq(byte[].class)))
+    void shouldFallbackTo512MangaDexCoverWhenOriginalFails() {
+        byte[] thumbnailBytes = new byte[]{50, 51, 52};
+        ResponseEntity<byte[]> thumbnailResponse = ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .body(thumbnailBytes);
+
+        when(restTemplate.exchange(eq("https://uploads.mangadex.org/covers/comic123/original.jpg"), eq(HttpMethod.GET), any(), eq(byte[].class)))
                 .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
 
-        // Lan goi 1: that bai, luu vao negative cache
-        ResponseEntity<byte[]> firstResp = imageProxyService.fetchImage("https://uploads.mangadex.org/covers/fail/test.jpg");
-        assertEquals(HttpStatus.OK, firstResp.getStatusCode());
-        assertTrue(new String(firstResp.getBody()).contains("KOMIKA"));
+        when(restTemplate.exchange(eq("https://uploads.mangadex.org/covers/comic123/original.jpg.512.jpg"), eq(HttpMethod.GET), any(), eq(byte[].class)))
+                .thenReturn(thumbnailResponse);
 
-        // Lan goi 2: tra ve fallback ngay tu negative cache
-        ResponseEntity<byte[]> secondResp = imageProxyService.fetchImage("https://uploads.mangadex.org/covers/fail/test.jpg");
+        ResponseEntity<byte[]> response = imageProxyService.fetchImage("https://uploads.mangadex.org/covers/comic123/original.jpg");
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertArrayEquals(thumbnailBytes, response.getBody());
+    }
+
+    @Test
+    void shouldServeFromDiskCacheWhenMemoryCacheCleared() {
+        byte[] expectedBytes = new byte[]{70, 71, 72};
+        ResponseEntity<byte[]> cdnResponse = ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .body(expectedBytes);
+
+        when(restTemplate.exchange(eq("https://uploads.mangadex.org/covers/disk/test.jpg"), eq(HttpMethod.GET), any(), eq(byte[].class)))
+                .thenReturn(cdnResponse);
+
+        // Lan 1: goi qua restTemplate va ghi xuong disk cache
+        ResponseEntity<byte[]> firstResp = imageProxyService.fetchImage("https://uploads.mangadex.org/covers/disk/test.jpg");
+        assertEquals(HttpStatus.OK, firstResp.getStatusCode());
+        assertArrayEquals(expectedBytes, firstResp.getBody());
+
+        // Xoa rieng memory cache bang cach goi lai khoi tao service moi de kiem tra doc tu disk
+        ImageProxyService diskService = new ImageProxyService(restTemplate);
+        ResponseEntity<byte[]> secondResp = diskService.fetchImage("https://uploads.mangadex.org/covers/disk/test.jpg");
         assertEquals(HttpStatus.OK, secondResp.getStatusCode());
-        assertTrue(new String(secondResp.getBody()).contains("KOMIKA"));
+        assertArrayEquals(expectedBytes, secondResp.getBody());
     }
 }
 

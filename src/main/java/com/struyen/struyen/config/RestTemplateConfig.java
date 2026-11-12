@@ -72,21 +72,21 @@ public class RestTemplateConfig {
 
         PoolingHttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
                 .setDnsResolver(customDnsResolver)
-                .setMaxConnTotal(150)
-                .setMaxConnPerRoute(40)
+                .setMaxConnTotal(200)
+                .setMaxConnPerRoute(50)
                 .build();
 
-        // Connect timeout 2s, Response timeout 4s: Ngan chan triet de tinh trang treo luong Tomcat do CDN goc phan hoi cham
+        // Connect timeout 5s, Response timeout 12s de dam bao tai tron ven file anh tu CDN quoc te
         RequestConfig requestConfig = RequestConfig.custom()
-                .setConnectTimeout(Timeout.ofSeconds(2))
-                .setResponseTimeout(Timeout.ofSeconds(4))
+                .setConnectTimeout(Timeout.ofSeconds(5))
+                .setResponseTimeout(Timeout.ofSeconds(12))
                 .build();
 
-        // Chien luoc Fail-Fast: 0 retries khi mat ket noi de giai phong luong ngay lap tuc
+        // Thu lai 2 lan khi gap su co mang tam thoi de lay anh bang duoc
         CloseableHttpClient httpClient = HttpClients.custom()
                 .setConnectionManager(connectionManager)
                 .setDefaultRequestConfig(requestConfig)
-                .setRetryStrategy(new DefaultHttpRequestRetryStrategy(0, TimeValue.ZERO_MILLISECONDS))
+                .setRetryStrategy(new DefaultHttpRequestRetryStrategy(2, TimeValue.ofMilliseconds(500)))
                 .build();
 
         HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(httpClient);
