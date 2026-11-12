@@ -69,7 +69,7 @@ Toàn bộ dữ liệu thô được khai thác từ Otruyen:
 ### Lộ trình các tính năng tiếp theo (Thứ tự ưu tiên triển khai):
 1. [x] **Bước 1:** `F-14` Admin Management & Content Moderation Dashboard (Hoàn thành)
 2. [x] **Bước 2:** `F-20` Performance & Security Hardening (Hoàn thành)
-3. [ ] **Bước 3:** `F-13` Redis Caching Optimization (Tối ưu tốc độ & giảm tải PostgreSQL)
+3. [x] **Bước 3:** `F-13` Redis Caching Optimization (Hoàn thành)
 4. [ ] **Bước 4:** `F-12` Automated User Notification System (Tích hợp Message Broker phân tán)
 5. [ ] **Bước 5:** `F-08` Elasticsearch Full-Text Search & Smart Suggestions (Tối thiểu 5 truyện)
 6. [ ] **Bước 6:** `PROD-SECURITY` Cloudflare Turnstile (Invisible CAPTCHA) & Email Service (Forgot Password / Account Recovery) khi triển khai Production.

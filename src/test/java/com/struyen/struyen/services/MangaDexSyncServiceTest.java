@@ -37,6 +37,9 @@ class MangaDexSyncServiceTest {
     @Mock
     private ChapterRepository chapterRepository;
 
+    @Mock
+    private CacheEvictService cacheEvictService;
+
     private MangaDexSyncService mangaDexSyncService;
 
     @BeforeEach
@@ -45,7 +48,8 @@ class MangaDexSyncServiceTest {
                 restTemplate,
                 storyRepository,
                 categoryRepository,
-                chapterRepository
+                chapterRepository,
+                cacheEvictService
         );
     }
 

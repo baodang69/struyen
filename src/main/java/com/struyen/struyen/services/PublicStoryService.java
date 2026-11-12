@@ -1,5 +1,6 @@
 package com.struyen.struyen.services;
 
+import com.struyen.struyen.config.RedisConfig;
 import com.struyen.struyen.dtos.*;
 import com.struyen.struyen.entities.Category;
 import com.struyen.struyen.entities.Chapter;
@@ -13,6 +14,7 @@ import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -60,7 +62,13 @@ public class PublicStoryService {
 
     /**
      * Lay danh sach truyen co phan trang, sap xep, tim kiem tu khoa, loc the loai va loc trang thai tien do (status).
+     * Ap dung Redis Cache cho cac truy van duyet trang, chi bo qua cache khi nguoi dung tim kiem tu khoa rieng biet (q).
      */
+    @Cacheable(
+        value = RedisConfig.CACHE_STORIES_PAGE,
+        key = "'p:' + #page + ':s:' + #size + ':c:' + (#category != null ? #category : 'all') + ':so:' + (#sort != null ? #sort : 'newest') + ':st:' + (#status != null ? #status : 'all')",
+        condition = "(#q == null || #q.isBlank())"
+    )
     @Transactional(readOnly = true)
     public PageResponse<StoryListDto> getStories(int page, int size, String category, String sort, String q, String status) {
         Sort sortObj;
@@ -183,6 +191,7 @@ public class PublicStoryService {
      * Uu tien truyen co isFeatured = true, sap xep theo featuredAt DESC (moi nhat len dau).
      * Neu so luong truyen de cu chua du slot, bo sung bang cac truyen co luot xem cao nhat.
      */
+    @Cacheable(value = RedisConfig.CACHE_FEATURED_STORIES, key = "#limit")
     @Transactional(readOnly = true)
     public List<StoryListDto> getFeaturedStories(int limit) {
         int maxLimit = (limit > 0 && limit <= 20) ? limit : 6;
@@ -214,6 +223,7 @@ public class PublicStoryService {
      * Lấy chi tiết thông tin truyện và toàn bộ danh sách chương theo slug.
      * Tự động làm sạch mô tả và kích hoạt tiến trình pre-fetch toàn bộ chương chưa đồng bộ.
      */
+    @Cacheable(value = RedisConfig.CACHE_STORY_DETAIL, key = "#slug")
     @Transactional(readOnly = true)
     public StoryDetailDto getStoryDetail(String slug) {
         Story story = storyRepository.findDetailBySlug(slug)
@@ -302,6 +312,7 @@ public class PublicStoryService {
     /**
      * Lay toan bo danh sach the loai truyen hien co trong he thong kem so luong truyen.
      */
+    @Cacheable(value = RedisConfig.CACHE_CATEGORIES, key = "'all'")
     @Transactional(readOnly = true)
     public List<CategoryDto> getAllCategories() {
         List<Object[]> rawList = categoryRepository.findAllCategoriesWithStoryCount();

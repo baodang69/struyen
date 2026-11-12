@@ -28,6 +28,7 @@ public class AdminService {
     private final StoryRepository storyRepository;
     private final UserRepository userRepository;
     private final NoticeRepository noticeRepository;
+    private final CacheEvictService cacheEvictService;
 
     // ==========================================
     // 1. STORY MODERATION
@@ -42,6 +43,11 @@ public class AdminService {
         story.setIsActive(newStatus);
         storyRepository.save(story);
         log.info("Admin da doi trang thai isActive cua truyen {} thanh: {}", story.getName(), newStatus);
+
+        cacheEvictService.evictStoryDetailCache(story.getSlug());
+        cacheEvictService.evictStoriesPageCache();
+        cacheEvictService.evictFeaturedStoriesCache();
+
         return newStatus;
     }
 
@@ -59,6 +65,10 @@ public class AdminService {
         }
         storyRepository.save(story);
         log.info("Admin da doi trang thai isFeatured cua truyen {} thanh: {}, featuredAt: {}", story.getName(), newFeatured, story.getFeaturedAt());
+
+        cacheEvictService.evictFeaturedStoriesCache();
+        cacheEvictService.evictStoryDetailCache(story.getSlug());
+
         return newFeatured;
     }
 
@@ -71,6 +81,9 @@ public class AdminService {
         story.setFeaturedAt(LocalDateTime.now());
         Story saved = storyRepository.save(story);
         log.info("Admin da dua truyen len dau danh sach de cu: {}", saved.getName());
+
+        cacheEvictService.evictFeaturedStoriesCache();
+
         return AdminStoryDto.fromEntity(saved);
     }
 

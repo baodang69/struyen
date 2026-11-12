@@ -43,6 +43,7 @@ public class MangaDexSyncService {
     private final StoryRepository storyRepository;
     private final CategoryRepository categoryRepository;
     private final ChapterRepository chapterRepository;
+    private final CacheEvictService cacheEvictService;
     private final AtomicBoolean isMangaDexSyncRunning = new AtomicBoolean(false);
 
     public boolean isSyncRunning() {
@@ -111,6 +112,7 @@ public class MangaDexSyncService {
             log.info("[Async Task] Bat dau tien trinh chay ngam dong bo MangaDex limit={}, offset={}", limit, offset);
             syncPopularVietnameseManga(limit, offset);
             log.info("[Async Task] Hoan tat tien trinh chay ngam dong bo MangaDex.");
+            cacheEvictService.evictAllStoryCaches();
         } finally {
             isMangaDexSyncRunning.set(false);
         }
@@ -249,6 +251,7 @@ public class MangaDexSyncService {
         }
         try {
             syncLatestVietnameseManga(limit);
+            cacheEvictService.evictAllStoryCaches();
         } finally {
             isMangaDexSyncRunning.set(false);
         }

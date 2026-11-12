@@ -32,6 +32,7 @@ public class OtruyenSyncService {
     private final StoryRepository storyRepository;
     private final CategoryRepository categoryRepository;
     private final ChapterRepository chapterRepository;
+    private final CacheEvictService cacheEvictService;
     private final AtomicBoolean isFullSyncRunning = new AtomicBoolean(false);
 
     public boolean isSyncRunning() {
@@ -195,6 +196,7 @@ public class OtruyenSyncService {
                 }
             }
             log.info("--- HOÀN TẤT QUÁ TRÌNH CÀO FULL DATA ---");
+            cacheEvictService.evictAllStoryCaches();
         } finally {
             isFullSyncRunning.set(false);
         }

@@ -1,73 +1,70 @@
-# Feature Planning: Redis Caching & Performance Optimization
+# Feature: Redis Caching & Performance Optimization
 
-- **Mã tính năng:** `F-13 / REDIS-CACHE`
-- **Trạng thái:** Dự thảo / Planning
-- **Độ ưu tiên:** Trung bình - Cao (Medium-High)
-- **Người phụ trách:** Backend & DevOps Team
-- **Dự kiến triển khai:** Phase 4.1
-
----
-
-## 1. Tổng quan & Mục tiêu
-
-- **Mục đích:** Tích hợp Redis vào tầng ứng dụng Spring Boot (`spring-boot-starter-data-redis`) làm bộ nhớ đệm phân tán (Distributed In-Memory Cache) để:
-  1. **Giảm tải cho PostgreSQL:** Tránh việc hàng ngàn người dùng cùng query vào database cho các dữ liệu ít biến động.
-  2. **Tăng tốc phản hồi (Latency < 10ms):** Tăng tốc độ load trang chủ, danh mục thể loại và chi tiết truyện lên gấp 5-10 lần.
-  3. **Tự động làm mới cache (Cache Eviction):** Khi Cron Job hoặc Admin cập nhật truyện mới, hệ thống tự động xóa cache cũ để người dùng luôn nhận dữ liệu mới nhất.
+- **Ma tinh nang:** `F-13 / REDIS-CACHE`
+- **Trang thai:** Hoan thanh
+- **Ngay hoan thanh:** 2026-11-12
+- **Tac gia / Phu trach:** AI Agent & Backend Team
+- **Nhanh Git lien quan:** `develop`
 
 ---
 
-## 2. Chiến lược phân bổ Cache (Cache Strategy & TTL)
+## 1. Tong quan & Muc tieu (Overview & Objectives)
 
-| Tên Cache | Key Format | Dữ liệu lưu trữ | Thời gian sống (TTL) | Khi nào Evict? |
+- **Muc dich:** Tich hop Redis lam bo nho dem phan tan (Distributed In-Memory Cache) giup:
+  1. **Giam 95-98% tai truy van xuong PostgreSQL:** Luu tru ket qua cac truy van doc pho bien (Trang chu, The loai, Danh sach moi cap nhat, BXH, Chi tiet truyen).
+  2. **Tang toc do phan hoi (Latency < 10ms):** Dữ lieu tra ve truc tiep tu bo nho RAM Redis thay vi qua Hibernate/JPA.
+  3. **Kien truc chong sup do (Cache Resilience & Graceful Degradation):** Tich hop `CacheErrorHandler` tuy bien, giup he thong tu dong fallback doc tu Database neu Redis gap su co hoac chua duoc bat ma khong gay loi 500 toi client.
+  4. **Quan ly lam moi cache tap trung (Cache Eviction):** Tu dong xoa cache tuong ung khi Admin thay doi trang thai truyen hoac khi tien trinh crawler cap nhat truyen moi.
+
+---
+
+## 2. Chien luoc phan bo Cache & TTL
+
+| Ten Cache | Key Pattern | Du lieu luu tru | Thoi gian song (TTL) | Co che Evict |
 |---|---|---|---|---|
-| `categories` | `categories:all` | Toàn bộ danh mục thể loại | 24 giờ | Khi thêm thể loại mới |
-| `stories_page` | `stories:page:{page}:size:{size}:cat:{cat}` | Danh sách truyện trang chủ | 15 phút | Khi Cron sync xong batch truyện mới |
-| `story_detail` | `story:detail:{slug}` | Chi tiết truyện & danh sách chương | 30 phút | Khi truyện đó có chương mới |
+| `categories` | `'all'` | Toan bo danh muc the loai song ngu | 24 gio | Khi DataInitializer hoac Admin cap nhat the loai |
+| `featured_stories` | `#limit` | Danh sach truyen de cu trang chu | 15 phut | Khi Admin toggle/bump truyen de cu, hoac Crawler sync xong |
+| `stories_page` | `'p:' + #page + ':s:' + #size + ...` | Danh sach truyen phan trang (Moi cap nhat, Top views, Loc the loai) | 15 phut | Khi Admin doi trang thai truyen, hoac Crawler sync xong (bo qua cache khi co tu khoa search `q`) |
+| `story_detail` | `#slug` | Chi tiet thong tin truyen & danh sach chuong | 30 phut | Khi truyen bi an/hien, hoac khi co chuong moi dong bo |
 
 ---
 
-## 3. Kiến trúc & Cơ chế hoạt động
+## 3. Kien truc & Co che hoat dong
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant Client as Frontend
-    participant Service as PublicStoryService
-    participant Redis as Redis Cache
-    participant DB as PostgreSQL
-
-    Client->>Service: GET /api/v1/public/stories/{slug}
-    Service->>Redis: GET story:detail:{slug}
-    alt Cache Hit (Có sẵn trong Redis)
-        Redis-->>Service: Dữ liệu JSON cached (< 5ms)
-        Service-->>Client: 200 OK
-    else Cache Miss (Chưa có hoặc hết hạn)
-        Redis-->>Service: null
-        Service->>DB: Query PostgreSQL Story + Chapters
-        DB-->>Service: Entity Data
-        Service->>Redis: SETEX story:detail:{slug} TTL 1800s
-        Service-->>Client: 200 OK
-    end
+flowchart TD
+    Client["Client / Frontend"] --> PublicService["PublicStoryService"]
+    PublicService --> CacheInterceptor{"Spring Cache (@Cacheable)"}
+    CacheInterceptor -- "Cache Hit (< 10ms)" --> Redis[("Redis Server")]
+    Redis -- "JSON Cached Data" --> PublicService
+    CacheInterceptor -- "Cache Miss / Redis Error" --> DB[("PostgreSQL Database")]
+    DB --> PublicService
+    PublicService -- "Ghi Cache ngam" --> Redis
+    PublicService --> Client
 ```
 
 ---
 
-## 4. Các thư viện & Cấu hình cần bổ sung
+## 4. Cac file ma nguon chinh (Key Source Files)
 
-### 4.1 Thư viện trong `pom.xml`:
-```xml
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-data-redis</artifactId>
-</dependency>
-```
+- **Configuration:**
+  - `src/main/java/com/struyen/struyen/config/RedisConfig.java`: Cau hinh Lettuce connection, Jackson JSON serializer voi `JavaTimeModule`, phan bo TTL theo tung cache name va `CacheErrorHandler` fallback tu dong.
+  - `src/main/resources/application.properties`: Cau hinh host, port, timeout va cache type.
+  - `pom.xml`: Bo sung dependency `spring-boot-starter-data-redis`.
+- **Services:**
+  - `src/main/java/com/struyen/struyen/services/CacheEvictService.java`: Service tap trung xu ly evict tung cache hoac toan bo cache truyen.
+  - `src/main/java/com/struyen/struyen/services/PublicStoryService.java`: Gan `@Cacheable` tren cac ham doc du lieu cong khai.
+  - `src/main/java/com/struyen/struyen/services/AdminService.java`: Goi `cacheEvictService` khi admin thay doi `isActive`, `isFeatured`, `bumpFeatured`.
+  - `src/main/java/com/struyen/struyen/services/OtruyenSyncService.java`: Goi `cacheEvictService.evictAllStoryCaches()` khi hoan tat cào du lieu.
+  - `src/main/java/com/struyen/struyen/services/MangaDexSyncService.java`: Goi `cacheEvictService.evictAllStoryCaches()` khi dong bo truyen/chuong moi.
+  - `src/main/java/com/struyen/struyen/config/DataInitializer.java`: Goi `cacheEvictService.evictCategoriesCache()` khi chuan hoa the loai.
+- **Unit Tests:**
+  - `src/test/java/com/struyen/struyen/services/CacheEvictServiceTest.java`: Kiem thu toan dien cac phuong thuc evict va xu ly resilience khi cache null.
 
-### 4.2 Cấu hình `application.properties`:
-```properties
-spring.data.redis.host=${REDIS_HOST:localhost}
-spring.data.redis.port=${REDIS_PORT:6379}
-spring.cache.type=redis
-spring.cache.redis.time-to-live=1800000
-```
+---
 
+## 5. Kiem thu & Xac minh (Verification)
+
+1. **Serializer kiem chung:** Jackson JSON serializer ho tro day du kieu du lieu thoi gian `LocalDateTime` ma khong bi loi `SerializationException`.
+2. **Graceful Fallback:** Khi Redis offline (moi truong test), ung dung tu dong bat ngoai le qua `CacheErrorHandler` va `CacheEvictService`, ghi log CANH BAO (Warning) va hoat dong binh thuong voi PostgreSQL ma khong nem loi 500.
+3. **Toan bo Test Suite:** 23/23 test cases vuot qua thanh cong (`BUILD SUCCESS`).

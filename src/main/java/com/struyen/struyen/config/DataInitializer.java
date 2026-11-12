@@ -28,6 +28,7 @@ public class DataInitializer implements CommandLineRunner {
     private final StoryRepository storyRepository;
     private final CategoryRepository categoryRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.struyen.struyen.services.CacheEvictService cacheEvictService;
 
     private static final Map<String, String[]> BILINGUAL_CATEGORIES = Map.ofEntries(
             Map.entry("4-koma", new String[]{"4-Koma", "4-Koma"}),
@@ -147,6 +148,7 @@ public class DataInitializer implements CommandLineRunner {
         }
         if (updated > 0) {
             log.info("Da dong bo chuan hoa ten song ngu cho {} the loai trong database", updated);
+            cacheEvictService.evictCategoriesCache();
         }
     }
 
