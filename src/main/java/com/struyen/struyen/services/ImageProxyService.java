@@ -10,7 +10,9 @@ import org.springframework.web.client.RestTemplate;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -22,6 +24,17 @@ public class ImageProxyService {
 
     // Gioi han dung luong toi da cho mot file anh (15 MB) de chong tran bo nho Heap (OOM)
     private static final long MAX_IMAGE_SIZE_BYTES = 15 * 1024 * 1024;
+
+    // Negative cache: Ghi nho cac URL anh that bai trong 10 phut de tra ve fallback ngay lap tuc ma khong goi mang
+    private final Map<String, Long> failedUrlsCache = new ConcurrentHashMap<>();
+    private static final long NEGATIVE_CACHE_TTL_MS = 10 * 60 * 1000L;
+    private static final int MAX_NEGATIVE_CACHE_ENTRIES = 5000;
+
+    // Memory cache: Cache cac anh tai thanh cong (dung luong <= 1MB vi du anh bia) trong 1 gio
+    public record CachedImage(byte[] data, MediaType contentType, long cachedAt) {}
+    private final Map<String, CachedImage> imageMemoryCache = new ConcurrentHashMap<>();
+    private static final long IMAGE_MEMORY_CACHE_TTL_MS = 60 * 60 * 1000L;
+    private static final int MAX_MEMORY_CACHE_ENTRIES = 400;
 
     // Fallback SVG image when upstream CDN image cannot be retrieved
     private static final byte[] FALLBACK_SVG_BYTES = (
@@ -54,6 +67,29 @@ public class ImageProxyService {
         if (!isAllowedUrl(imageUrl)) {
             log.warn("[SSRF Blocked] Tu choi truy cap URL khong thuoc whitelist: {}", imageUrl);
             return createFallbackResponse(HttpStatus.BAD_REQUEST);
+        }
+
+        // 2. Kiem tra Negative Cache (Neu URL da tung that bai gan day, tra ve fallback ngay lap tuc)
+        Long failedTimestamp = failedUrlsCache.get(imageUrl);
+        if (failedTimestamp != null) {
+            if (System.currentTimeMillis() - failedTimestamp < NEGATIVE_CACHE_TTL_MS) {
+                return createFallbackResponse(HttpStatus.OK);
+            } else {
+                failedUrlsCache.remove(imageUrl);
+            }
+        }
+
+        // 3. Kiem tra In-Memory Cache (Phuc vu anh tuc thi neu da co trong RAM)
+        CachedImage cached = imageMemoryCache.get(imageUrl);
+        if (cached != null) {
+            if (System.currentTimeMillis() - cached.cachedAt() < IMAGE_MEMORY_CACHE_TTL_MS) {
+                HttpHeaders responseHeaders = new HttpHeaders();
+                responseHeaders.setContentType(cached.contentType());
+                responseHeaders.setCacheControl(CacheControl.maxAge(30, TimeUnit.DAYS).cachePublic());
+                return new ResponseEntity<>(cached.data(), responseHeaders, HttpStatus.OK);
+            } else {
+                imageMemoryCache.remove(imageUrl);
+            }
         }
 
         try {
@@ -99,15 +135,37 @@ public class ImageProxyService {
             // Thiet lap Cache-Control de trinh duyet tu do cache trong 30 ngay (giup giam tai server proxy)
             responseHeaders.setCacheControl(CacheControl.maxAge(30, TimeUnit.DAYS).cachePublic());
 
-            return new ResponseEntity<>(response.getBody(), responseHeaders, HttpStatus.OK);
+            byte[] body = response.getBody();
+            if (body != null && body.length <= 1024 * 1024) {
+                if (imageMemoryCache.size() >= MAX_MEMORY_CACHE_ENTRIES) {
+                    imageMemoryCache.clear();
+                }
+                imageMemoryCache.put(imageUrl, new CachedImage(body, contentType != null ? contentType : MediaType.IMAGE_JPEG, System.currentTimeMillis()));
+            }
+
+            return new ResponseEntity<>(body, responseHeaders, HttpStatus.OK);
 
         } catch (HttpStatusCodeException e) {
+            recordFailedUrl(imageUrl);
             log.warn("Loi HTTP {} tu CDN goc khi tai anh {}: {}. Tra ve fallback placeholder.", e.getStatusCode(), imageUrl, e.getMessage());
             return createFallbackResponse(HttpStatus.OK);
         } catch (Exception e) {
+            recordFailedUrl(imageUrl);
             log.warn("Loi khong mong muon khi proxy anh {}: {}. Tra ve fallback placeholder.", imageUrl, e.getMessage());
             return createFallbackResponse(HttpStatus.OK);
         }
+    }
+
+    private void recordFailedUrl(String imageUrl) {
+        if (failedUrlsCache.size() >= MAX_NEGATIVE_CACHE_ENTRIES) {
+            failedUrlsCache.clear();
+        }
+        failedUrlsCache.put(imageUrl, System.currentTimeMillis());
+    }
+
+    public void clearCaches() {
+        failedUrlsCache.clear();
+        imageMemoryCache.clear();
     }
 
     private ResponseEntity<byte[]> createFallbackResponse(HttpStatus status) {

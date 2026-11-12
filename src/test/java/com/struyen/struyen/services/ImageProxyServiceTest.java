@@ -115,5 +115,41 @@ class ImageProxyServiceTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertArrayEquals(expectedBytes, response.getBody());
     }
+
+    @Test
+    void shouldServeFromMemoryCacheOnSubsequentRequest() {
+        byte[] expectedBytes = new byte[]{30, 31, 32};
+        ResponseEntity<byte[]> cdnResponse = ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .body(expectedBytes);
+
+        when(restTemplate.exchange(eq("https://sv1.otruyencdn.com/cached-test.jpg"), eq(HttpMethod.GET), any(), eq(byte[].class)))
+                .thenReturn(cdnResponse);
+
+        // Lan goi dau tien: goi restTemplate
+        ResponseEntity<byte[]> firstResp = imageProxyService.fetchImage("https://sv1.otruyencdn.com/cached-test.jpg");
+        assertEquals(HttpStatus.OK, firstResp.getStatusCode());
+
+        // Lan goi thu hai: phuc vu tu memory cache, khong goi them restTemplate
+        ResponseEntity<byte[]> secondResp = imageProxyService.fetchImage("https://sv1.otruyencdn.com/cached-test.jpg");
+        assertEquals(HttpStatus.OK, secondResp.getStatusCode());
+        assertArrayEquals(expectedBytes, secondResp.getBody());
+    }
+
+    @Test
+    void shouldServeFromNegativeCacheWhenPreviousRequestFailed() {
+        when(restTemplate.exchange(eq("https://uploads.mangadex.org/covers/fail/test.jpg"), eq(HttpMethod.GET), any(), eq(byte[].class)))
+                .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
+
+        // Lan goi 1: that bai, luu vao negative cache
+        ResponseEntity<byte[]> firstResp = imageProxyService.fetchImage("https://uploads.mangadex.org/covers/fail/test.jpg");
+        assertEquals(HttpStatus.OK, firstResp.getStatusCode());
+        assertTrue(new String(firstResp.getBody()).contains("KOMIKA"));
+
+        // Lan goi 2: tra ve fallback ngay tu negative cache
+        ResponseEntity<byte[]> secondResp = imageProxyService.fetchImage("https://uploads.mangadex.org/covers/fail/test.jpg");
+        assertEquals(HttpStatus.OK, secondResp.getStatusCode());
+        assertTrue(new String(secondResp.getBody()).contains("KOMIKA"));
+    }
 }
 

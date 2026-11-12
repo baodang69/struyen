@@ -3,10 +3,12 @@ package com.struyen.struyen.config;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.DnsResolver;
 import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.DefaultHttpRequestRetryStrategy;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.util.TimeValue;
 import org.apache.hc.core5.util.Timeout;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -70,18 +72,21 @@ public class RestTemplateConfig {
 
         PoolingHttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
                 .setDnsResolver(customDnsResolver)
-                .setMaxConnTotal(100)
-                .setMaxConnPerRoute(25)
+                .setMaxConnTotal(150)
+                .setMaxConnPerRoute(40)
                 .build();
 
+        // Connect timeout 2s, Response timeout 4s: Ngan chan triet de tinh trang treo luong Tomcat do CDN goc phan hoi cham
         RequestConfig requestConfig = RequestConfig.custom()
-                .setConnectTimeout(Timeout.ofSeconds(6))
-                .setResponseTimeout(Timeout.ofSeconds(20))
+                .setConnectTimeout(Timeout.ofSeconds(2))
+                .setResponseTimeout(Timeout.ofSeconds(4))
                 .build();
 
+        // Chien luoc Fail-Fast: 0 retries khi mat ket noi de giai phong luong ngay lap tuc
         CloseableHttpClient httpClient = HttpClients.custom()
                 .setConnectionManager(connectionManager)
                 .setDefaultRequestConfig(requestConfig)
+                .setRetryStrategy(new DefaultHttpRequestRetryStrategy(0, TimeValue.ZERO_MILLISECONDS))
                 .build();
 
         HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory(httpClient);
