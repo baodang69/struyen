@@ -101,3 +101,28 @@ flowchart TD
    - `RateLimitFilterTest` vuot qua 3/3 test cases (cho phep req hop le, chan HTTP 429 khi vuot nguong, bo qua GET requests).
 5. **Toan bo Test Suite:**
    - 18/18 test cases vuot qua thanh cong (`BUILD SUCCESS`).
+
+---
+
+## 7. Dinh huong nang cap bao mat tuong lai (Future Security Roadmap - Production Preparation)
+
+Khi he thong duoc trien khai cong khai ra moi truong Production tren Internet, cac co che sau day duoc quy hoach de nang cap tiep theo:
+
+### 7.1. Tich hop Invisible CAPTCHA (Cloudflare Turnstile hoac Google reCAPTCHA v3)
+- **Muc tieu:** Khac phuc han che cua Rate Limit theo IP khi doi mat voi botnet su dung Rotating Residential Proxies (proxy xoay vong) hoac VPN.
+- **Diem tich hop:**
+  - Form Dang ky (`POST /api/v1/auth/register`).
+  - Form Dang nhap (`POST /api/v1/auth/login`).
+- **Nguyen ly:**
+  - Su dung CAPTCHA vo hinh (Invisible) khong bat nguoi dung bam hinh anh hay giai cau do, tu dong danh gia diem tin cay (Score) ngam trong trinh duyet.
+  - Client gui kem `turnstileToken` len Backend, Backend goi API xac minh voi Cloudflare/Google truoc khi thuc hien logic tiep theo.
+  - Uu diem: Chuyen nghiep, bao ve 99.9% khoi bot tu dong ma khong gay ma sat lam giam trai nghiem nguoi dung doc truyen.
+
+### 7.2. Chien luoc xac minh Email (Email Verification Strategy)
+- **Dac thu nen tang:** Web doc truyen tranh uu tien trai nghiem nguoi dung nhanh gon, khong bat buoc xac thuc email ngay khi vua tao tai khoan de tranh ti le nguoi dung bo cuoc (Drop-off Rate 30-50%).
+- **Ke hoach trien khai:**
+  - **Giai doan 1 (Hien tai):** Cho phep dang ky va dang nhap doc truyen binh thuong sau khi vuot qua Rate Limit.
+  - **Giai doan 2 (Khi public):** Tich hop dich vu gui mail (SendGrid / AWS SES / Resend) de phuc vu tinh nang **Quen mat khau / Khoi phuc tai khoan (Forgot & Reset Password OTP)**.
+  - **Giai doan 3:** Cho phep nguoi dung chu dong bam "Xac minh Email" trong trang ca nhan de nhan huy hieu tin cay hoac cac dac quyen ve sau.
+
+
