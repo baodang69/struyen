@@ -90,6 +90,10 @@ sequenceDiagram
   - `src/main/java/com/struyen/struyen/services/AuthService.java`: Tích hợp luồng refresh, logout và revoke khi đổi mật khẩu.
 - **Controllers:**
   - `src/main/java/com/struyen/struyen/controllers/AuthController.java`: Thêm endpoint `/refresh` và `/logout`, xử lý `HttpOnly Cookie`.
+- **Frontend Client (`komika-fe`):**
+  - `src/lib/api/http-client.ts`: Cấu hình `withCredentials: true`, cài đặt Axios Response Interceptor với Queue Mutex (`failedQueue`, `isRefreshing`), tránh đệ quy bằng `refreshClient`, tự động retry request khi refresh thành công.
+  - `src/stores/auth.store.ts`: Bổ sung lắng nghe sự kiện `komika-auth-token-refreshed` để đồng bộ state Zustand khi token được gia hạn ngầm, và gọi `/api/v1/auth/logout` khi đăng xuất.
+  - `src/features/auth/api/auth.api.ts`: Thêm hàm gọi API `refreshTokenApi()` và `logoutApi()`.
 
 ---
 
