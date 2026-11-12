@@ -122,3 +122,4 @@ public class RedisConfig implements CachingConfigurer {
         };
     }
 }
+

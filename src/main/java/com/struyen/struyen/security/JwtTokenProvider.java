@@ -22,7 +22,7 @@ public class JwtTokenProvider {
 
     public JwtTokenProvider(
             @Value("${jwt.secret:struyen-jwt-secret-key-super-secure-must-be-at-least-256-bits-long-2026}") String secret,
-            @Value("${jwt.expiration-ms:86400000}") long jwtExpirationMs) {
+            @Value("${jwt.access-expiration-ms:${jwt.expiration-ms:900000}}") long jwtExpirationMs) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.jwtExpirationMs = jwtExpirationMs;
     }

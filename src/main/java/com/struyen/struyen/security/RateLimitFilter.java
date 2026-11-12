@@ -35,6 +35,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final int COMMENT_MAX_REQUESTS = 10;
     private static final long COMMENT_WINDOW_MILLIS = 60 * 1000L; // 1 phut
 
+    private static final int REFRESH_MAX_REQUESTS = 20;
+    private static final long REFRESH_WINDOW_MILLIS = 60 * 1000L; // 1 phut
+
     private final Map<String, ConcurrentLinkedQueue<Long>> requestLogs = new ConcurrentHashMap<>();
     private long lastCleanupTimestamp = System.currentTimeMillis();
 
@@ -63,6 +66,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
             } else if (path.equals("/api/v1/me/comments")) {
                 if (!isAllowed(clientIp + ":comment", COMMENT_MAX_REQUESTS, COMMENT_WINDOW_MILLIS)) {
                     sendRateLimitError(response, "Ban dang gui binh luan qua nhanh. Vui long cho 1 phut roi thu lai.");
+                    return;
+                }
+            } else if (path.equals("/api/v1/auth/refresh")) {
+                if (!isAllowed(clientIp + ":refresh", REFRESH_MAX_REQUESTS, REFRESH_WINDOW_MILLIS)) {
+                    sendRateLimitError(response, "Qua nhieu yeu cau gia han token tu IP nay. Vui long thu lai sau 1 phut.");
                     return;
                 }
             }

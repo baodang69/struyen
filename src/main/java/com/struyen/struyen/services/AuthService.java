@@ -37,6 +37,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenService refreshTokenService;
 
     public static final String DEFAULT_ROLE = "ROLE_MEMBER";
     public static final String ADMIN_ROLE = "ROLE_ADMIN";
@@ -72,10 +73,12 @@ public class AuthService {
 
         List<String> roleNames = List.of(memberRole.getName());
         String token = jwtTokenProvider.generateTokenFromUsername(user.getUsername(), roleNames);
+        String refreshToken = refreshTokenService.createRefreshToken(user.getUsername());
 
         return AuthResponse.builder()
                 .token(token)
                 .tokenType("Bearer")
+                .refreshToken(refreshToken)
                 .user(UserDto.fromEntity(user))
                 .build();
     }
@@ -102,11 +105,55 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Tai khoan nay da bi khoa do vi pham chinh sach.");
         }
 
+        String refreshToken = refreshTokenService.createRefreshToken(user.getUsername());
+
         return AuthResponse.builder()
                 .token(token)
                 .tokenType("Bearer")
+                .refreshToken(refreshToken)
                 .user(UserDto.fromEntity(user))
                 .build();
+    }
+
+    /**
+     * Gia han Access Token bang Refresh Token (kem Refresh Token Rotation)
+     */
+    @Transactional(readOnly = true)
+    public AuthResponse refresh(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Refresh token khong duoc de trong.");
+        }
+
+        RefreshTokenService.RotationResult result = refreshTokenService.rotateRefreshToken(refreshToken);
+
+        User user = userRepository.findWithRolesByUsername(result.username())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Khong tim thay thong tin nguoi dung."));
+
+        if ("BANNED".equalsIgnoreCase(user.getUserStatus())) {
+            refreshTokenService.revokeRefreshToken(result.newToken(), user.getUsername());
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Tai khoan nay da bi khoa do vi pham chinh sach.");
+        }
+
+        List<String> roleNames = user.getRoles().stream()
+                .map(Role::getName)
+                .toList();
+        String newAccessToken = jwtTokenProvider.generateTokenFromUsername(user.getUsername(), roleNames);
+
+        return AuthResponse.builder()
+                .token(newAccessToken)
+                .tokenType("Bearer")
+                .refreshToken(result.newToken())
+                .user(UserDto.fromEntity(user))
+                .build();
+    }
+
+    /**
+     * Dang xuat: Thu hoi Refresh Token
+     */
+    public void logout(String refreshToken) {
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            refreshTokenService.revokeRefreshToken(refreshToken);
+        }
     }
 
     /**
@@ -155,7 +202,8 @@ public class AuthService {
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
-        log.info("User {} da doi mat khau thanh cong", username);
+        refreshTokenService.revokeAllUserTokens(username);
+        log.info("User {} da doi mat khau thanh cong va thu hoi toan bo Refresh Token", username);
     }
 }
 

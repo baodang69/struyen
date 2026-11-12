@@ -27,6 +27,7 @@ Bảng danh sách tổng hợp tất cả các tính năng (features) đã hoàn
 | F-19 | `BILINGUAL-CATEGORIES-PAGE-SEPARATION` | Thể loại song ngữ trong DB, Bộ lọc thẻ category chuyên sâu & Tách riêng trang Mới cập nhật | Hoàn thành | 2026-11-11 | [19-bilingual-categories-and-page-separation.md](./19-bilingual-categories-and-page-separation.md) |
 | F-20 | `PERF-SECURITY-HARDENING` | Tối ưu hóa hiệu năng JPA/N+1, Chống tràn RAM/Connection & Rate Limiting phòng vệ DoS/Spam | Hoàn thành | 2026-11-12 | [20-performance-and-security-hardening.md](./20-performance-and-security-hardening.md) |
 | F-13 | `REDIS-CACHE` | Tối ưu hóa Cache Redis cho trang chủ, chi tiết truyện & danh mục (Latency < 10ms & Fallback) | Hoàn thành | 2026-11-12 | [13-redis-caching-optimization.md](./13-redis-caching-optimization.md) |
+| F-21 | `REFRESH-TOKEN-AUTH` | Hệ thống Xác thực Dual-Token (Access Token 15m + Refresh Token Redis 7d & Rotation) | Hoàn thành | 2026-11-12 | [21-refresh-token-authentication.md](./21-refresh-token-authentication.md) |
 | F-12 | `NOTIFICATION-SYSTEM` | Hệ thống Thông báo tự động kèm Message Broker phân tán | Kế hoạch | - | [12-notification-system.md](./12-notification-system.md) |
 | F-08 | `ELASTICSEARCH-SEARCH` | Tìm kiếm Elasticsearch & Auto-suggestion tối thiểu 5 truyện | Kế hoạch | - | [08-elasticsearch-search-and-suggestion.md](./08-elasticsearch-search-and-suggestion.md) |
 

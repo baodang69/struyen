@@ -49,8 +49,8 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints: dang ky, dang nhap, doc truyen, proxy anh, notice chung
-                        .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login").permitAll()
+                        // Public endpoints: dang ky, dang nhap, refresh token, logout, doc truyen, proxy anh, notice chung
+                        .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
                         .requestMatchers("/api/v1/public/**").permitAll()
                         .requestMatchers("/api/v1/proxy/**").permitAll()
                         // Admin sync endpoint (co header key kiem tra rieng tai Controller)
