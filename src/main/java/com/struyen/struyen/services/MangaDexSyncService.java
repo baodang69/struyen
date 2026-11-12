@@ -31,6 +31,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 @Service
@@ -42,6 +43,11 @@ public class MangaDexSyncService {
     private final StoryRepository storyRepository;
     private final CategoryRepository categoryRepository;
     private final ChapterRepository chapterRepository;
+    private final AtomicBoolean isMangaDexSyncRunning = new AtomicBoolean(false);
+
+    public boolean isSyncRunning() {
+        return isMangaDexSyncRunning.get();
+    }
 
     private static final String API_BASE = "https://api.mangadex.org";
     private static final String MANGADEX_USER_AGENT = "StruyenReader/1.0 (https://github.com/struyen/struyen_be; contact@struyen.com)";
@@ -95,11 +101,19 @@ public class MangaDexSyncService {
     /**
      * Dong bo danh sach truyen Tieng Viet pho bien nhat tu MangaDex (chay ngam bat dong bo).
      */
-    @org.springframework.scheduling.annotation.Async
+    @org.springframework.scheduling.annotation.Async("taskExecutor")
     public void syncPopularVietnameseMangaAsync(int limit, int offset) {
-        log.info("[Async Task] Bat dau tien trinh chay ngam dong bo MangaDex limit={}, offset={}", limit, offset);
-        syncPopularVietnameseManga(limit, offset);
-        log.info("[Async Task] Hoan tat tien trinh chay ngam dong bo MangaDex.");
+        if (!isMangaDexSyncRunning.compareAndSet(false, true)) {
+            log.warn("Tien trinh dong bo MangaDex dang chay, tu choi yeu cau moi.");
+            return;
+        }
+        try {
+            log.info("[Async Task] Bat dau tien trinh chay ngam dong bo MangaDex limit={}, offset={}", limit, offset);
+            syncPopularVietnameseManga(limit, offset);
+            log.info("[Async Task] Hoan tat tien trinh chay ngam dong bo MangaDex.");
+        } finally {
+            isMangaDexSyncRunning.set(false);
+        }
     }
 
     /**
@@ -229,7 +243,15 @@ public class MangaDexSyncService {
 
     @Async("taskExecutor")
     public void syncLatestVietnameseMangaAsync(int limit) {
-        syncLatestVietnameseManga(limit);
+        if (!isMangaDexSyncRunning.compareAndSet(false, true)) {
+            log.warn("Tien trinh dong bo MangaDex dang chay, tu choi yeu cau moi.");
+            return;
+        }
+        try {
+            syncLatestVietnameseManga(limit);
+        } finally {
+            isMangaDexSyncRunning.set(false);
+        }
     }
 
     /**

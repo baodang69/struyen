@@ -224,11 +224,8 @@ public class PublicStoryService {
             story.setDescription(MangaDexSyncService.cleanDescription(story.getDescription()));
         }
 
-        List<Chapter> chapters = new ArrayList<>(chapterRepository.findByStoryIdOrderByCreatedAtAsc(story.getId()));
-        chapters.sort(ChapterComparator.INSTANCE);
-        List<ChapterShortDto> chapterDtos = chapters.stream()
-                .map(ChapterShortDto::fromEntity)
-                .toList();
+        List<ChapterShortDto> chapterDtos = new ArrayList<>(chapterRepository.findShortChaptersByStoryId(story.getId()));
+        chapterDtos.sort(ChapterComparator.SHORT_DTO_COMPARATOR);
 
         return StoryDetailDto.fromEntity(story, chapterDtos);
     }
@@ -248,9 +245,9 @@ public class PublicStoryService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Truyện chứa chương này đã bị ẩn hoặc không tồn tại.");
         }
 
-        // Tính toán chương trước và chương sau dựa trên danh sách chương cùng truyện (đã sắp xếp tự nhiên)
-        List<Chapter> storyChapters = new ArrayList<>(chapterRepository.findByStoryIdOrderByCreatedAtAsc(story.getId()));
-        storyChapters.sort(ChapterComparator.INSTANCE);
+        // Tính toán chương trước và chương sau dựa trên danh sách chương rút gọn (không nạp imagesJson gây tốn RAM)
+        List<ChapterShortDto> storyChapters = new ArrayList<>(chapterRepository.findShortChaptersByStoryId(story.getId()));
+        storyChapters.sort(ChapterComparator.SHORT_DTO_COMPARATOR);
         String prevChapterId = null;
         String nextChapterId = null;
 

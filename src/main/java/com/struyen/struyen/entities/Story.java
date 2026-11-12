@@ -14,7 +14,9 @@ import java.util.Set;
     @Index(name = "idx_story_slug", columnList = "slug"),
     @Index(name = "idx_story_updated_at", columnList = "updated_at DESC"),
     @Index(name = "idx_story_active", columnList = "is_active"),
-    @Index(name = "idx_story_featured", columnList = "is_featured, featured_at DESC")
+    @Index(name = "idx_story_featured", columnList = "is_featured, featured_at DESC"),
+    @Index(name = "idx_story_active_views", columnList = "is_active, view_count DESC"),
+    @Index(name = "idx_story_active_updated", columnList = "is_active, updated_at DESC")
 })
 @Getter
 @Setter

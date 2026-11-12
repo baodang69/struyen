@@ -21,7 +21,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -77,7 +80,8 @@ public class CommentService {
     }
 
     /**
-     * Lay danh sach binh luan cap goc tren trang truyen (Story Page) kem toan bo replies phan cap
+     * Lay danh sach binh luan cap goc tren trang truyen (Story Page) kem toan bo replies phan cap.
+     * Toi uu batch query replies de giai quyet triet de loi N+1 query.
      */
     @Transactional(readOnly = true)
     public PageResponse<CommentDto> getStoryComments(String storyId, int page, int size) {
@@ -85,25 +89,12 @@ public class CommentService {
         Pageable pageable = PageRequest.of(springPage, size);
 
         Page<Comment> commentPage = commentRepository.findByStoryIdAndParentIsNullAndIsDeletedFalseOrderByCreatedAtDesc(storyId, pageable);
-
-        Page<CommentDto> dtoPage = commentPage.map(c -> {
-            List<Comment> replies = commentRepository.findByParentIdAndIsDeletedFalseOrderByCreatedAtAsc(c.getId());
-            List<CommentDto> replyDtos = replies.stream()
-                    .map(r -> CommentDto.fromEntity(r, 0))
-                    .toList();
-
-            CommentDto parentDto = CommentDto.fromEntity(c, replyDtos.size());
-            if (parentDto != null) {
-                parentDto.setReplies(replyDtos);
-            }
-            return parentDto;
-        });
-
-        return PageResponse.of(dtoPage);
+        return buildCommentPageResponse(commentPage);
     }
 
     /**
-     * Lay danh sach binh luan cap goc trong chuong truyen (Chapter Page) kem toan bo replies phan cap
+     * Lay danh sach binh luan cap goc trong chuong truyen (Chapter Page) kem toan bo replies phan cap.
+     * Toi uu batch query replies de giai quyet triet de loi N+1 query.
      */
     @Transactional(readOnly = true)
     public PageResponse<CommentDto> getChapterComments(String chapterId, int page, int size) {
@@ -111,13 +102,25 @@ public class CommentService {
         Pageable pageable = PageRequest.of(springPage, size);
 
         Page<Comment> commentPage = commentRepository.findByChapterIdAndParentIsNullAndIsDeletedFalseOrderByCreatedAtDesc(chapterId, pageable);
+        return buildCommentPageResponse(commentPage);
+    }
+
+    private PageResponse<CommentDto> buildCommentPageResponse(Page<Comment> commentPage) {
+        List<Comment> rootComments = commentPage.getContent();
+        if (rootComments.isEmpty()) {
+            return PageResponse.of(commentPage.map(c -> null));
+        }
+
+        List<Long> parentIds = rootComments.stream().map(Comment::getId).toList();
+        List<Comment> allReplies = commentRepository.findByParentIdInAndIsDeletedFalseOrderByCreatedAtAsc(parentIds);
+        Map<Long, List<CommentDto>> repliesMap = allReplies.stream()
+                .collect(Collectors.groupingBy(
+                        r -> r.getParent().getId(),
+                        Collectors.mapping(r -> CommentDto.fromEntity(r, 0), Collectors.toList())
+                ));
 
         Page<CommentDto> dtoPage = commentPage.map(c -> {
-            List<Comment> replies = commentRepository.findByParentIdAndIsDeletedFalseOrderByCreatedAtAsc(c.getId());
-            List<CommentDto> replyDtos = replies.stream()
-                    .map(r -> CommentDto.fromEntity(r, 0))
-                    .toList();
-
+            List<CommentDto> replyDtos = repliesMap.getOrDefault(c.getId(), Collections.emptyList());
             CommentDto parentDto = CommentDto.fromEntity(c, replyDtos.size());
             if (parentDto != null) {
                 parentDto.setReplies(replyDtos);

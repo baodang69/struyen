@@ -14,6 +14,10 @@ import java.util.regex.Pattern;
 public class ChapterComparator implements Comparator<Chapter> {
 
     public static final ChapterComparator INSTANCE = new ChapterComparator();
+    public static final Comparator<com.struyen.struyen.dtos.ChapterShortDto> SHORT_DTO_COMPARATOR = (c1, c2) -> compareNames(
+            c1 != null ? c1.getChapterName() : null,
+            c2 != null ? c2.getChapterName() : null
+    );
     private static final Pattern NUMBER_PATTERN = Pattern.compile("(\\d+(\\.\\d+)?)");
 
     @Override
@@ -22,9 +26,10 @@ public class ChapterComparator implements Comparator<Chapter> {
         if (c1 == null) return -1;
         if (c2 == null) return 1;
 
-        String name1 = c1.getChapterName();
-        String name2 = c2.getChapterName();
+        return compareNames(c1.getChapterName(), c2.getChapterName());
+    }
 
+    public static int compareNames(String name1, String name2) {
         if (name1 == null) name1 = "";
         if (name2 == null) name2 = "";
 

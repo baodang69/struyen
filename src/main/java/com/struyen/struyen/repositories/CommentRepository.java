@@ -21,6 +21,9 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @EntityGraph(attributePaths = {"user"})
     List<Comment> findByParentIdAndIsDeletedFalseOrderByCreatedAtAsc(Long parentId);
 
+    @EntityGraph(attributePaths = {"user", "parent", "parent.user"})
+    List<Comment> findByParentIdInAndIsDeletedFalseOrderByCreatedAtAsc(List<Long> parentIds);
+
     long countByParentIdAndIsDeletedFalse(Long parentId);
 
     long countByStoryIdAndIsDeletedFalse(String storyId);

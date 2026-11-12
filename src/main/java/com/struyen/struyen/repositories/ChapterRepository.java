@@ -21,6 +21,14 @@ public interface ChapterRepository extends JpaRepository<Chapter, String> {
     Set<String> findChapterNamesByStoryId(@Param("storyId") String storyId);
 
     /**
+     * Lấy danh sách chương rút gọn (ChapterShortDto) không nạp mảng JSON ảnh (imagesJson) vào bộ nhớ,
+     * giúp tối ưu hiệu năng và tránh cạn kiệt Heap RAM khi truyện có hàng nghìn chương.
+     */
+    @Query("SELECT new com.struyen.struyen.dtos.ChapterShortDto(c.id, c.chapterName, c.chapterTitle, c.updatedAt) " +
+           "FROM Chapter c WHERE c.story.id = :storyId ORDER BY c.createdAt ASC")
+    java.util.List<com.struyen.struyen.dtos.ChapterShortDto> findShortChaptersByStoryId(@Param("storyId") String storyId);
+
+    /**
      * Lấy toàn bộ danh sách chương của một truyện theo thứ tự tạo tăng dần.
      */
     java.util.List<Chapter> findByStoryIdOrderByCreatedAtAsc(String storyId);

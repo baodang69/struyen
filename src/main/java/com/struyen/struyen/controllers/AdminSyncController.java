@@ -40,6 +40,11 @@ public class AdminSyncController {
                     .body("Tham số không hợp lệ: startPage phải >= 1, endPage >= startPage và khoảng cách quét tối đa 100 trang.");
         }
 
+        if (otruyenSyncService.isSyncRunning()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Conflict: Một tiến trình cào dữ liệu Otruyen đang chạy, vui lòng thử lại sau khi hoàn tất.");
+        }
+
         // Gọi hàm Async để chạy ngầm tiến trình kéo data, không làm treo Web Request (Timeout)
         otruyenSyncService.syncFullStoriesAsync(startPage, endPage);
 
@@ -63,6 +68,11 @@ public class AdminSyncController {
                     .body("Tham so khong hop le: limit tu 1 den 50, offset >= 0.");
         }
 
+        if (mangaDexSyncService.isSyncRunning()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Conflict: Mot tien trinh dong bo MangaDex dang chay, vui long thu lai sau khi hoan tat.");
+        }
+
         mangaDexSyncService.syncPopularVietnameseMangaAsync(limit, offset);
 
         return ResponseEntity.ok(String.format("Tien trinh dong bo %d truyen Tieng Viet tu MangaDex (offset=%d) da duoc khoi chay ngam.", limit, offset));
@@ -81,6 +91,11 @@ public class AdminSyncController {
         if (limit < 1 || limit > 100) {
             return ResponseEntity.badRequest()
                     .body("Tham so khong hop le: limit tu 1 den 100.");
+        }
+
+        if (mangaDexSyncService.isSyncRunning()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Conflict: Mot tien trinh dong bo MangaDex dang chay, vui long thu lai sau khi hoan tat.");
         }
 
         mangaDexSyncService.syncLatestVietnameseMangaAsync(limit);

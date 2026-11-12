@@ -20,6 +20,7 @@ import org.springframework.web.client.RestTemplate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,6 +32,11 @@ public class OtruyenSyncService {
     private final StoryRepository storyRepository;
     private final CategoryRepository categoryRepository;
     private final ChapterRepository chapterRepository;
+    private final AtomicBoolean isFullSyncRunning = new AtomicBoolean(false);
+
+    public boolean isSyncRunning() {
+        return isFullSyncRunning.get();
+    }
 
     private static final String API_NEW_STORIES = "https://otruyenapi.com/v1/api/danh-sach/truyen-moi?page=";
     private static final String API_STORY_DETAIL = "https://otruyenapi.com/v1/api/truyen-tranh/";
@@ -173,17 +179,25 @@ public class OtruyenSyncService {
      */
     @Async("taskExecutor")
     public void syncFullStoriesAsync(int startPage, int endPage) {
-        log.info("--- BẮT ĐẦU QUÁ TRÌNH CÀO FULL DATA TỪ TRANG {} ĐẾN {} ---", startPage, endPage);
-        for (int i = startPage; i <= endPage; i++) {
-            try {
-                syncNewStories(i);
-                log.info("Đã quét xong trang {}. Đang đợi 2 giây để tránh bị chặn IP...", i);
-                Thread.sleep(2000);
-            } catch (Exception e) {
-                log.error("Lỗi khi cào dữ liệu tại trang {}: {}", i, e.getMessage());
-            }
+        if (!isFullSyncRunning.compareAndSet(false, true)) {
+            log.warn("Tien trinh cao du lieu Otruyen dang chay, tu choi yeu cau moi.");
+            return;
         }
-        log.info("--- HOÀN TẤT QUÁ TRÌNH CÀO FULL DATA ---");
+        try {
+            log.info("--- BẮT ĐẦU QUÁ TRÌNH CÀO FULL DATA TỪ TRANG {} ĐẾN {} ---", startPage, endPage);
+            for (int i = startPage; i <= endPage; i++) {
+                try {
+                    syncNewStories(i);
+                    log.info("Đã quét xong trang {}. Đang đợi 2 giây để tránh bị chặn IP...", i);
+                    Thread.sleep(2000);
+                } catch (Exception e) {
+                    log.error("Lỗi khi cào dữ liệu tại trang {}: {}", i, e.getMessage());
+                }
+            }
+            log.info("--- HOÀN TẤT QUÁ TRÌNH CÀO FULL DATA ---");
+        } finally {
+            isFullSyncRunning.set(false);
+        }
     }
 
     /**

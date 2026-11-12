@@ -23,16 +23,12 @@ public interface StoryRepository extends JpaRepository<Story, String>, JpaSpecif
 
     List<Story> findBySlugIn(List<String> slugs);
 
-    @EntityGraph(attributePaths = {"categories"})
     Page<Story> findByIsActiveTrue(Pageable pageable);
     
-    @EntityGraph(attributePaths = {"categories"})
     Page<Story> findByIsActiveTrueAndCategoriesSlug(String categorySlug, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"categories"})
     Page<Story> findByIsActiveTrueAndCategoriesId(String categoryId, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"categories"})
     @Query(value = "SELECT DISTINCT s FROM Story s JOIN s.categories c " +
                    "WHERE s.isActive = true AND (" +
                    "LOWER(c.slug) = LOWER(:category) OR " +
@@ -52,7 +48,6 @@ public interface StoryRepository extends JpaRepository<Story, String>, JpaSpecif
 
     Page<Story> findAllByOrderByUpdatedAtDesc(Pageable pageable);
 
-    @EntityGraph(attributePaths = {"categories"})
     @Query("SELECT s FROM Story s WHERE s.isActive = true AND s.isFeatured = true ORDER BY s.featuredAt DESC NULLS LAST, s.updatedAt DESC")
     List<Story> findFeaturedStories(Pageable pageable);
 
@@ -60,7 +55,6 @@ public interface StoryRepository extends JpaRepository<Story, String>, JpaSpecif
     @Query("SELECT s FROM Story s WHERE s.isFeatured = true ORDER BY s.featuredAt DESC NULLS LAST, s.updatedAt DESC")
     List<Story> findAllFeaturedStories();
 
-    @EntityGraph(attributePaths = {"categories"})
     List<Story> findByIsActiveTrueOrderByViewCountDesc(Pageable pageable);
 
     @org.springframework.data.jpa.repository.Modifying
