@@ -245,6 +245,7 @@ public class PublicStoryService {
      * Tự động chuyển đổi toàn bộ URL ảnh qua endpoint Image Proxy để tránh lỗi 403 CDN,
      * đồng thời tính toán liên kết chương trước (prev) và chương sau (next).
      */
+    @Cacheable(value = RedisConfig.CACHE_CHAPTER_DETAIL, key = "#chapterId")
     @Transactional(readOnly = true)
     public ChapterDetailDto getChapterDetail(String chapterId) {
         Chapter currentChapter = chapterRepository.findById(chapterId)

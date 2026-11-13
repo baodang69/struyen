@@ -36,6 +36,7 @@ public class RedisConfig implements CachingConfigurer {
     public static final String CACHE_FEATURED_STORIES = "featured_stories";
     public static final String CACHE_STORIES_PAGE = "stories_page";
     public static final String CACHE_STORY_DETAIL = "story_detail";
+    public static final String CACHE_CHAPTER_DETAIL = "chapter_detail";
 
     @Bean
     public GenericJackson2JsonRedisSerializer redisJsonSerializer() {
@@ -81,6 +82,7 @@ public class RedisConfig implements CachingConfigurer {
         cacheConfigs.put(CACHE_FEATURED_STORIES, defaultConfig.entryTtl(Duration.ofMinutes(15)));
         cacheConfigs.put(CACHE_STORIES_PAGE, defaultConfig.entryTtl(Duration.ofMinutes(15)));
         cacheConfigs.put(CACHE_STORY_DETAIL, defaultConfig.entryTtl(Duration.ofMinutes(30)));
+        cacheConfigs.put(CACHE_CHAPTER_DETAIL, defaultConfig.entryTtl(Duration.ofHours(12)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)

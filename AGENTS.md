@@ -21,6 +21,8 @@ Struyen (`struyen_be`) is a Spring Boot 3 & Java 21 backend aggregator platform 
 
 ### Clean Code & Professional Standards (STRICT)
 - **NO EMOJIS / ICONS:** Tuyệt đối KHÔNG sử dụng icon hoặc emoji (ví dụ: 🚨, ⚡, 🔥, 🚀, 💡, ✨, v.v.) trong mã nguồn, comments, log statements, và commit messages. Mọi nội dung code và git log phải hoàn toàn sạch sẽ, súc tích và chuyên nghiệp.
+- **NO AUTO-COMMITTING (STRICT):** Tuyệt đối KHÔNG tự động git commit bất kỳ thay đổi nào (đặc biệt là thông tin IP nội bộ, cấu hình nhạy cảm, mã nguồn) nếu chưa có yêu cầu trực tiếp từ người dùng. Chỉ thực hiện commit khi người dùng nói rõ "hãy commit" hoặc chỉ định commit cụ thể.
+- **CRITICAL THINKING & CANDID FEEDBACK (MANDATORY):** Tuyệt đối KHÔNG "vâng dạ", dung túng hay đồng ý một cách mù quáng với mọi yêu cầu của người dùng nếu phát hiện thấy vấn đề về mặt kiến trúc, hiệu năng hoặc thiết kế hệ thống. Phải luôn thẳng thắn phân tích đúng/sai, phản bác dựa trên dữ liệu kỹ thuật thực tế và đề xuất giải pháp tối ưu nhất trước khi hành động.
 
 
 ---

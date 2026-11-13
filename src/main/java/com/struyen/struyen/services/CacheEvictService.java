@@ -49,7 +49,8 @@ public class CacheEvictService {
         clearCache(RedisConfig.CACHE_FEATURED_STORIES);
         clearCache(RedisConfig.CACHE_STORIES_PAGE);
         clearCache(RedisConfig.CACHE_STORY_DETAIL);
-        log.info("[Cache Evict] Da lam moi toan bo cache truyen (Featured, Pages, Detail).");
+        clearCache(RedisConfig.CACHE_CHAPTER_DETAIL);
+        log.info("[Cache Evict] Da lam moi toan bo cache truyen (Featured, Pages, Detail, Chapter).");
     }
 
     private void clearCache(String cacheName) {

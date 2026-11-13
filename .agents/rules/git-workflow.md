@@ -14,6 +14,7 @@ Every commit message must follow the Conventional Commits specification:
 
 ### Strict Formatting Rule:
 - **NO EMOJIS/ICONS:** Absolutely NO emojis or icons (e.g. `:sparkles:`, `🚀`, `🔥`, `✨`, `🚨`, `🐛`) in commit messages or pull request titles. Use clean, plain English/Vietnamese technical text only.
+- **NO AUTO-COMMITTING:** Never automatically stage and commit changes (especially internal IPs, environment configurations, or WIP code) without explicit instruction from the user. Only commit when explicitly instructed by the user.
 
 
 ### Types:
