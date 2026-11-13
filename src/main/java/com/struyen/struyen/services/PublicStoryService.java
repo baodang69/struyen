@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -297,6 +298,11 @@ public class PublicStoryService {
             }
         }
 
+        // Asynchronous background prefetching cho chuong ke tiep de loai bo do tre khi chuyen chuong
+        if (nextChapterId != null) {
+            prefetchNextChapterAsync(nextChapterId);
+        }
+
         return ChapterDetailDto.builder()
                 .chapterId(currentChapter.getId())
                 .storyId(story.getId())
@@ -308,6 +314,26 @@ public class PublicStoryService {
                 .nextChapterId(nextChapterId)
                 .images(proxyImages)
                 .build();
+    }
+
+    /**
+     * Tien trinh chay ngam bat dong bo de tai truoc danh sach anh cua chuong ke tiep tu MangaDex.
+     */
+    private void prefetchNextChapterAsync(String nextChapterId) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                chapterRepository.findById(nextChapterId).ifPresent(nextChapter -> {
+                    if ((nextChapter.getImagesJson() == null || nextChapter.getImagesJson().isEmpty())
+                            && nextChapter.getChapterApiData() != null
+                            && nextChapter.getChapterApiData().contains("mangadex.org/at-home/server")) {
+                        log.info("[Background Prefetch] Bat dau prefetch anh cho chuong ke tiep: {}", nextChapterId);
+                        mangaDexSyncService.fetchChapterPages(nextChapter);
+                    }
+                });
+            } catch (Exception e) {
+                log.warn("[Background Prefetch] Khong the prefetch chuong {}: {}", nextChapterId, e.getMessage());
+            }
+        });
     }
 
     /**
