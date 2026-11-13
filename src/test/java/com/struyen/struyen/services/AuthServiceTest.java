@@ -2,6 +2,8 @@ package com.struyen.struyen.services;
 
 import com.struyen.struyen.dtos.AuthResponse;
 import com.struyen.struyen.dtos.ChangePasswordRequest;
+import com.struyen.struyen.dtos.GoogleLoginRequest;
+import com.struyen.struyen.dtos.GoogleTokenInfoDto;
 import com.struyen.struyen.dtos.LoginRequest;
 import com.struyen.struyen.dtos.RegisterRequest;
 import com.struyen.struyen.entities.Role;
@@ -54,6 +56,9 @@ class AuthServiceTest {
 
     @Mock
     private RefreshTokenService refreshTokenService;
+
+    @Mock
+    private GoogleAuthService googleAuthService;
 
     @InjectMocks
     private AuthService authService;
@@ -189,6 +194,149 @@ class AuthServiceTest {
         verify(userRepository).save(sampleUser);
         verify(refreshTokenService).revokeAllUserTokens("testuser");
         assertThat(sampleUser.getPasswordHash()).isEqualTo("newHashedPassword");
+    }
+
+    @Test
+    @DisplayName("loginWithGoogle should create new user when not existing")
+    void loginWithGoogle_NewUser_Success() {
+        GoogleLoginRequest request = GoogleLoginRequest.builder()
+                .credential("valid-google-id-token")
+                .build();
+
+        GoogleTokenInfoDto tokenInfo = GoogleTokenInfoDto.builder()
+                .email("newgoogle@example.com")
+                .emailVerified("true")
+                .name("Google Newbie")
+                .sub("google-sub-12345")
+                .picture("https://lh3.googleusercontent.com/avatar.png")
+                .build();
+
+        when(googleAuthService.verifyToken("valid-google-id-token")).thenReturn(tokenInfo);
+        when(userRepository.findWithRolesByAuthProviderAndProviderId("GOOGLE", "google-sub-12345")).thenReturn(Optional.empty());
+        when(userRepository.existsByEmail("newgoogle@example.com")).thenReturn(false);
+        when(roleRepository.findByName("ROLE_MEMBER")).thenReturn(Optional.of(memberRole));
+        when(passwordEncoder.encode(anyString())).thenReturn("randomHashedPassword");
+        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+
+        User savedUser = User.builder()
+                .id(2L)
+                .username("googlenewbie")
+                .email("newgoogle@example.com")
+                .passwordHash("randomHashedPassword")
+                .authProvider("GOOGLE")
+                .providerId("google-sub-12345")
+                .avatarUrl("https://lh3.googleusercontent.com/avatar.png")
+                .userStatus("ACTIVE")
+                .roles(new HashSet<>(Set.of(memberRole)))
+                .build();
+
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+        when(jwtTokenProvider.generateTokenFromUsername(eq("googlenewbie"), anyList())).thenReturn("jwt-google-access-token");
+        when(refreshTokenService.createRefreshToken("googlenewbie")).thenReturn("jwt-google-refresh-token");
+
+        AuthResponse response = authService.loginWithGoogle(request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getToken()).isEqualTo("jwt-google-access-token");
+        assertThat(response.getRefreshToken()).isEqualTo("jwt-google-refresh-token");
+        assertThat(response.getUser().getEmail()).isEqualTo("newgoogle@example.com");
+        assertThat(response.getUser().getUsername()).isEqualTo("googlenewbie");
+    }
+
+    @Test
+    @DisplayName("loginWithGoogle should throw CONFLICT when email was already registered as LOCAL account")
+    void loginWithGoogle_ExistingLocalUser_ThrowsConflict() {
+        GoogleLoginRequest request = GoogleLoginRequest.builder()
+                .credential("valid-google-id-token")
+                .build();
+
+        GoogleTokenInfoDto tokenInfo = GoogleTokenInfoDto.builder()
+                .email("test@example.com")
+                .emailVerified("true")
+                .name("Test User")
+                .sub("google-sub-67890")
+                .picture("https://lh3.googleusercontent.com/avatar2.png")
+                .build();
+
+        when(googleAuthService.verifyToken("valid-google-id-token")).thenReturn(tokenInfo);
+        when(userRepository.findWithRolesByAuthProviderAndProviderId("GOOGLE", "google-sub-67890")).thenReturn(Optional.empty());
+        when(userRepository.existsByEmail("test@example.com")).thenReturn(true);
+
+        assertThatThrownBy(() -> authService.loginWithGoogle(request))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.CONFLICT);
+    }
+
+    @Test
+    @DisplayName("loginWithGoogle should succeed for existing Google user")
+    void loginWithGoogle_ExistingGoogleUser_Success() {
+        GoogleLoginRequest request = GoogleLoginRequest.builder()
+                .credential("valid-google-id-token")
+                .build();
+
+        GoogleTokenInfoDto tokenInfo = GoogleTokenInfoDto.builder()
+                .email("test@example.com")
+                .emailVerified("true")
+                .name("Test User")
+                .sub("google-sub-67890")
+                .picture("https://lh3.googleusercontent.com/avatar2.png")
+                .build();
+
+        User existingGoogleUser = User.builder()
+                .id(1L)
+                .username("testuser")
+                .email("test@example.com")
+                .passwordHash("hashedPassword")
+                .authProvider("GOOGLE")
+                .providerId("google-sub-67890")
+                .avatarUrl("https://lh3.googleusercontent.com/avatar2.png")
+                .userStatus("ACTIVE")
+                .roles(new HashSet<>(Set.of(memberRole)))
+                .build();
+
+        when(googleAuthService.verifyToken("valid-google-id-token")).thenReturn(tokenInfo);
+        when(userRepository.findWithRolesByAuthProviderAndProviderId("GOOGLE", "google-sub-67890")).thenReturn(Optional.of(existingGoogleUser));
+        when(jwtTokenProvider.generateTokenFromUsername(eq("testuser"), anyList())).thenReturn("jwt-google-token");
+        when(refreshTokenService.createRefreshToken("testuser")).thenReturn("jwt-google-refresh-token");
+
+        AuthResponse response = authService.loginWithGoogle(request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getToken()).isEqualTo("jwt-google-token");
+        assertThat(response.getUser().getEmail()).isEqualTo("test@example.com");
+    }
+
+    @Test
+    @DisplayName("loginWithGoogle should throw FORBIDDEN if user is banned")
+    void loginWithGoogle_BannedUser_ThrowsForbidden() {
+        GoogleLoginRequest request = GoogleLoginRequest.builder()
+                .credential("valid-google-id-token")
+                .build();
+
+        GoogleTokenInfoDto tokenInfo = GoogleTokenInfoDto.builder()
+                .email("banned@example.com")
+                .emailVerified("true")
+                .name("Banned User")
+                .sub("google-sub-banned")
+                .build();
+
+        User bannedUser = User.builder()
+                .id(3L)
+                .username("banneduser")
+                .email("banned@example.com")
+                .authProvider("GOOGLE")
+                .providerId("google-sub-banned")
+                .userStatus("BANNED")
+                .roles(new HashSet<>(Set.of(memberRole)))
+                .build();
+
+        when(googleAuthService.verifyToken("valid-google-id-token")).thenReturn(tokenInfo);
+        when(userRepository.findWithRolesByAuthProviderAndProviderId("GOOGLE", "google-sub-banned")).thenReturn(Optional.of(bannedUser));
+        when(roleRepository.findByName("ROLE_MEMBER")).thenReturn(Optional.of(memberRole));
+
+        assertThatThrownBy(() -> authService.loginWithGoogle(request))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasFieldOrPropertyWithValue("status", HttpStatus.FORBIDDEN);
     }
 }
 

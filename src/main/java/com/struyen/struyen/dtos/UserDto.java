@@ -20,6 +20,7 @@ public class UserDto {
     private String username;
     private String email;
     private String avatarUrl;
+    private String authProvider;
     private String userStatus;
     private List<String> roles;
     private LocalDateTime createdAt;
@@ -36,6 +37,7 @@ public class UserDto {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .avatarUrl(user.getAvatarUrl())
+                .authProvider(user.getAuthProvider())
                 .userStatus(user.getUserStatus())
                 .roles(roleNames)
                 .createdAt(user.getCreatedAt())

@@ -24,6 +24,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findWithRolesByEmail(String email);
 
     @EntityGraph(attributePaths = {"roles"})
+    Optional<User> findWithRolesByAuthProviderAndProviderId(String authProvider, String providerId);
+
+    Optional<User> findByAuthProviderAndProviderId(String authProvider, String providerId);
+
+    @EntityGraph(attributePaths = {"roles"})
     org.springframework.data.domain.Page<User> findByUserStatusOrderByCreatedAtDesc(String userStatus, org.springframework.data.domain.Pageable pageable);
 
     @EntityGraph(attributePaths = {"roles"})

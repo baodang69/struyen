@@ -133,7 +133,8 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
-					<argLine>-XX:+EnableDynamicAgentLoading -Dnet.bytebuddy.experimental=true</argLine>
+					<argLine>-javaagent:"C:/Users/baovi/.m2/repository/org/mockito/mockito-core/5.17.0/mockito-core-5.17.0.jar" -XX:+EnableDynamicAgentLoading -Dnet.bytebuddy.experimental=true -Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+					<useManifestOnlyJar>false</useManifestOnlyJar>
 				</configuration>
 			</plugin>
 		</plugins>

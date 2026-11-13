@@ -1,6 +1,7 @@
 package com.struyen.struyen.controllers;
 
 import com.struyen.struyen.dtos.AuthResponse;
+import com.struyen.struyen.dtos.GoogleLoginRequest;
 import com.struyen.struyen.dtos.LoginRequest;
 import com.struyen.struyen.dtos.RefreshTokenRequest;
 import com.struyen.struyen.dtos.RegisterRequest;
@@ -51,6 +52,15 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
+        ResponseCookie cookie = createRefreshTokenCookie(response.getRefreshToken());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(response);
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<AuthResponse> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+        AuthResponse response = authService.loginWithGoogle(request);
         ResponseCookie cookie = createRefreshTokenCookie(response.getRefreshToken());
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())

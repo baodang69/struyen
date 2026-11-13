@@ -29,6 +29,7 @@ Bảng danh sách tổng hợp tất cả các tính năng (features) đã hoàn
 | F-13 | `REDIS-CACHE` | Tối ưu hóa Cache Redis cho trang chủ, chi tiết truyện & danh mục (Latency < 10ms & Fallback) | Hoàn thành | 2026-11-12 | [13-redis-caching-optimization.md](./13-redis-caching-optimization.md) |
 | F-21 | `REFRESH-TOKEN-AUTH` | Hệ thống Xác thực Dual-Token (Access Token 15m + Refresh Token Redis 7d & Rotation) | Hoàn thành | 2026-11-12 | [21-refresh-token-authentication.md](./21-refresh-token-authentication.md) |
 | F-22 | `IMAGE-PROXY-OPT` | Tối ưu hóa Image Proxy: Giảm Timeout, Fail-Fast, Negative Cache & Memory Cache chống nghẽn Tomcat | Hoàn thành | 2026-11-12 | [22-image-proxy-optimization.md](./22-image-proxy-optimization.md) |
+| F-23 | `GOOGLE-OAUTH2` | Xác thực đăng nhập Google OAuth2 qua Google Identity Services & Dual-Token JWT | Hoàn thành | 2026-11-13 | [23-google-oauth2-authentication.md](./23-google-oauth2-authentication.md) |
 | F-12 | `NOTIFICATION-SYSTEM` | Hệ thống Thông báo tự động kèm Message Broker phân tán | Kế hoạch | - | [12-notification-system.md](./12-notification-system.md) |
 | F-08 | `ELASTICSEARCH-SEARCH` | Tìm kiếm Elasticsearch & Auto-suggestion tối thiểu 5 truyện | Kế hoạch | - | [08-elasticsearch-search-and-suggestion.md](./08-elasticsearch-search-and-suggestion.md) |
 

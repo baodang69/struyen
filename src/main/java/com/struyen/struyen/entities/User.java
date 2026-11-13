@@ -38,6 +38,13 @@ public class User {
     private String avatarUrl;
 
     @Builder.Default
+    @Column(name = "auth_provider", length = 20)
+    private String authProvider = "LOCAL";
+
+    @Column(name = "provider_id", length = 100)
+    private String providerId;
+
+    @Builder.Default
     @Column(name = "user_status", nullable = false, length = 20)
     private String userStatus = "ACTIVE";
 
