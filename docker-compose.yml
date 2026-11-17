@@ -111,6 +111,19 @@ services:
     networks:
       - struyen-network
 
+  # Cloudflare Tunnel: Exposes Nginx securely to the internet without port forwarding
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: struyen-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - nginx
+    networks:
+      - struyen-network
+
 volumes:
   postgres_data:
   redis_data:
