@@ -82,7 +82,8 @@ public class RedisConfig implements CachingConfigurer {
         cacheConfigs.put(CACHE_FEATURED_STORIES, defaultConfig.entryTtl(Duration.ofMinutes(15)));
         cacheConfigs.put(CACHE_STORIES_PAGE, defaultConfig.entryTtl(Duration.ofMinutes(15)));
         cacheConfigs.put(CACHE_STORY_DETAIL, defaultConfig.entryTtl(Duration.ofMinutes(30)));
-        cacheConfigs.put(CACHE_CHAPTER_DETAIL, defaultConfig.entryTtl(Duration.ofHours(12)));
+        // TTL 10 phut cho chapter detail de dam bao token MangaDex At-Home luon fresh (het han sau 15 phut)
+        cacheConfigs.put(CACHE_CHAPTER_DETAIL, defaultConfig.entryTtl(Duration.ofMinutes(10)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)

@@ -278,22 +278,19 @@ public class PublicStoryService {
             nextChapterId = storyChapters.get(currentIndex + 1).getId();
         }
 
-        // On-demand fetch cho MangaDex chapter neu chua dong bo anh
-        if ((currentChapter.getImagesJson() == null || currentChapter.getImagesJson().isEmpty())
-                && currentChapter.getChapterApiData() != null
+        // On-demand fetch cho MangaDex chapter de dam bao luon co token/baseUrl fresh (15 phut)
+        if (currentChapter.getChapterApiData() != null
                 && currentChapter.getChapterApiData().contains("mangadex.org/at-home/server")) {
             currentChapter = mangaDexSyncService.fetchChapterPages(currentChapter);
         }
 
-        // Chuyển đổi danh sách ảnh raw sang Image Proxy URL
-        List<String> proxyImages = new ArrayList<>();
+        // Tra ve danh sach link anh thuan truc tiep tu MangaDex node, khong qua dynamic query proxy
+        List<String> rawImages = new ArrayList<>();
         if (currentChapter.getImagesJson() != null) {
             for (Map<String, Object> imgMap : currentChapter.getImagesJson()) {
                 Object rawUrlObj = imgMap.get("url");
                 if (rawUrlObj != null) {
-                    String rawUrl = rawUrlObj.toString();
-                    String proxyUrl = "/api/v1/proxy/image?url=" + URLEncoder.encode(rawUrl, StandardCharsets.UTF_8);
-                    proxyImages.add(proxyUrl);
+                    rawImages.add(rawUrlObj.toString());
                 }
             }
         }
@@ -312,7 +309,7 @@ public class PublicStoryService {
                 .chapterTitle(currentChapter.getChapterTitle())
                 .prevChapterId(prevChapterId)
                 .nextChapterId(nextChapterId)
-                .images(proxyImages)
+                .images(rawImages)
                 .build();
     }
 

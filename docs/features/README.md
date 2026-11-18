@@ -31,6 +31,7 @@ Bảng danh sách tổng hợp tất cả các tính năng (features) đã hoàn
 | F-22 | `IMAGE-PROXY-OPT` | Tối ưu hóa Image Proxy: Giảm Timeout, Fail-Fast, Negative Cache & Memory Cache chống nghẽn Tomcat | Hoàn thành | 2026-11-12 | [22-image-proxy-optimization.md](./22-image-proxy-optimization.md) |
 | F-23 | `GOOGLE-OAUTH2` | Xác thực đăng nhập Google OAuth2 qua Google Identity Services & Dual-Token JWT | Hoàn thành | 2026-11-13 | [23-google-oauth2-authentication.md](./23-google-oauth2-authentication.md) |
 | F-24 | `DOCKER-STACK` | Đóng gói Docker đa tầng, Nginx Cache Reverse Proxy & Docker Compose toàn diện | Hoàn thành | 2026-11-13 | [24-docker-compose-and-nginx-stack.md](./24-docker-compose-and-nginx-stack.md) |
+| F-25 | `MANGADEX-CLEAN-PROXY-OFFLOAD` | Clean Static URL Proxy, Bypass Anti-Hotlink MangaDex qua Nginx & Offload Cache Cloudflare | Hoàn thành | 2026-11-18 | [25-mangadex-clean-proxy-offload.md](./25-mangadex-clean-proxy-offload.md) |
 | F-12 | `NOTIFICATION-SYSTEM` | Hệ thống Thông báo tự động kèm Message Broker phân tán | Kế hoạch | - | [12-notification-system.md](./12-notification-system.md) |
 | F-08 | `ELASTICSEARCH-SEARCH` | Tìm kiếm Elasticsearch & Auto-suggestion tối thiểu 5 truyện | Kế hoạch | - | [08-elasticsearch-search-and-suggestion.md](./08-elasticsearch-search-and-suggestion.md) |
 
